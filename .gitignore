@@ -1,0 +1,12 @@
+# Modelli (troppo grandi per GitHub)
+models/*.pt
+*.pt
+
+# Video
+input_videos/
+runs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/

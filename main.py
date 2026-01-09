@@ -1,8 +1,7 @@
 import os
 from ultralytics import YOLO
-#stocazzoi
-model = YOLO("yolov8s.pt") #il modello che penso sia meglio usare con il nostro hardware, magari si può upgradare
 
+model = YOLO("models/ball_detector_model.pt") #il modello della palla
 video_path = "input_videos/video_1.mp4"
 
 results = model.predict(video_path, save=True)
