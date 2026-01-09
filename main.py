@@ -10,5 +10,3 @@ print(results)
 print("########################")
 for box in results[0].boxes:
     print(box.xyxy)
-
-#gergh
