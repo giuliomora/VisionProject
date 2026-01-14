@@ -10,3 +10,9 @@ runs/
 __pycache__/
 *.pyc
 .venv/
+venv/
+# IDE
+.vscode/
+
+# macOS
+.DS_Store
