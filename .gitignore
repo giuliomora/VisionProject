@@ -6,6 +6,9 @@ models/*.pt
 input_videos/
 runs/
 
+# Stubs (cache tracce)
+stubs/
+
 # Python
 __pycache__/
 *.pyc

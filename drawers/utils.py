@@ -1,8 +1,22 @@
 import cv2
+import numpy as np
 import sys
 sys.path.append('../')
 from utils import get_center_of_bbox, get_bbox_width
 
+def draw_triangle(frame, bbox, color):
+    y = int(bbox[1])
+    x,_  = get_center_of_bbox(bbox)
+
+    triangle_points = np.array([
+        [x, y],
+        [x-10, y-20],
+        [x+10, y-20]
+    ])
+    cv2.drawContours(frame, [triangle_points], 0, color, cv2.FILLED)
+    cv2.drawContours(frame, [triangle_points], 0, (0, 0, 0), 2)
+
+    return frame
 
 def draw_ellypse(frame, bbox, color, track_id=None):
     y2 = int(bbox[3])
@@ -18,7 +32,6 @@ def draw_ellypse(frame, bbox, color, track_id=None):
                 thickness= 2,
                 lineType=cv2.LINE_4
                 )
-
 
 
     rectangle_width = 40
