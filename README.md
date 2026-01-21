@@ -2,16 +2,17 @@
 
 **Progetto di Computer Vision and Cognitive Systems**
 
-Sistema di tracking dei giocatori in video di partite sportive utilizzando tecniche di deep learning e computer vision.
+Sistema di tracking dei giocatori e del pallone in video di partite sportive utilizzando tecniche di deep learning e computer vision.
 
 ---
 
 ## 📋 Descrizione del Progetto
 
 VisionProject è un'applicazione di computer vision che analizza video di partite sportive per:
-- **Rilevare** i giocatori presenti in ogni frame
-- **Tracciare** i movimenti dei giocatori nel tempo (tracking multi-oggetto)
-- **Visualizzare** le tracce con annotazioni grafiche (ellissi e ID)
+- **Rilevare** i giocatori e il pallone presenti in ogni frame
+- **Tracciare** i movimenti dei giocatori nel tempo (tracking multi-oggetto con ByteTrack)
+- **Tracciare** la posizione del pallone (detection con selezione per confidence)
+- **Visualizzare** le tracce con annotazioni grafiche (ellissi per i giocatori, triangoli per il pallone)
 
 Il sistema utilizza modelli YOLO pre-addestrati per la detection e l'algoritmo ByteTrack per il tracking persistente degli oggetti tra i frame.
 
@@ -24,15 +25,17 @@ VisionProject/
 ├── main.py                    # Entry point dell'applicazione
 ├── models/                    # Modelli YOLO pre-addestrati
 │   ├── player_detector.pt     # Modello per detection giocatori
-│   ├── ball_detector_model.pt # Modello per detection pallone (futuro)
+│   ├── ball_detector_model.pt # Modello per detection pallone
 │   └── court_keypoint_detector.pt # Modello per keypoint campo (futuro)
 ├── trackers/                  # Moduli di tracking
 │   ├── __init__.py
-│   └── playerTracker.py       # Classe PlayerTracker
+│   ├── playerTracker.py       # Classe PlayerTracker
+│   └── ballTracker.py         # Classe BallTracker
 ├── drawers/                   # Moduli di visualizzazione
 │   ├── __init__.py
 │   ├── player_tracks_drawer.py # Classe PlayerTracksDrawer
-│   └── utils.py               # Funzioni di disegno (ellissi, rettangoli)
+│   ├── ball_tracks_drawer.py  # Classe BallTracksDrawer
+│   └── utils.py               # Funzioni di disegno (ellissi, triangoli)
 ├── utils/                     # Utility generiche
 │   ├── __init__.py
 │   ├── video_utils.py         # Lettura/scrittura video
@@ -51,7 +54,7 @@ VisionProject/
 ### 1. **main.py** - Entry Point
 Il file principale che orchestra l'intera pipeline:
 1. Carica il video di input
-2. Inizializza il tracker dei giocatori
+2. Inizializza i tracker (giocatori e pallone)
 3. Esegue il tracking (o carica dalla cache)
 4. Disegna le annotazioni sui frame
 5. Salva il video di output
@@ -74,27 +77,52 @@ Classe responsabile del rilevamento e tracking dei giocatori:
 }
 ```
 
-### 3. **PlayerTracksDrawer** (`drawers/player_tracks_drawer.py`)
-Classe per la visualizzazione delle tracce:
+### 3. **BallTracker** (`trackers/ballTracker.py`)
+Classe responsabile del rilevamento del pallone:
 
-- **`draw(video_frames, tracks)`**: Per ogni frame, disegna un'ellisse colorata sotto ogni giocatore con il suo ID di tracking
+- **`__init__(model_path)`**: Inizializza il modello YOLO per la detection del pallone
+- **`detect_frames(frames)`**: Esegue la detection su tutti i frame in batch da 20
+- **`get_object_tracks(frames, read_from_stub, stub_path)`**: 
+  - Se esiste una cache (stub), la carica per evitare ricalcoli
+  - Seleziona la detection con confidence massima per ogni frame
+  - Salva i risultati in cache per usi futuri
 
-### 4. **Funzioni di Disegno** (`drawers/utils.py`)
+**Output**: Lista di dizionari, uno per frame, con struttura:
+```python
+{
+    1: {"bbox": [x1, y1, x2, y2]},  # Una sola detection per frame
+}
+```
+
+### 4. **PlayerTracksDrawer** (`drawers/player_tracks_drawer.py`)
+Classe per la visualizzazione delle tracce dei giocatori:
+
+- **`draw(video_frames, tracks)`**: Per ogni frame, disegna un'ellisse rossa sotto ogni giocatore con il suo ID di tracking
+
+### 5. **BallTracksDrawer** (`drawers/ball_tracks_drawer.py`)
+Classe per la visualizzazione della posizione del pallone:
+
+- **`draw(video_frames, tracks)`**: Per ogni frame, disegna un triangolo verde sopra il pallone
+
+### 6. **Funzioni di Disegno** (`drawers/utils.py`)
 - **`draw_ellypse(frame, bbox, color, track_id)`**: 
   - Disegna un'ellisse ai piedi del giocatore (posizione y2 del bounding box)
   - Aggiunge un rettangolo con l'ID del track
   - L'ellisse ha forma proporzionale alla larghezza del bounding box
+- **`draw_triangle(frame, bbox, color)`**:
+  - Disegna un triangolo sopra il pallone (posizione y1 del bounding box)
+  - Il triangolo punta verso il basso per indicare la posizione
 
-### 5. **Utility Video** (`utils/video_utils.py`)
+### 7. **Utility Video** (`utils/video_utils.py`)
 - **`read_video(video_path)`**: Legge un video e restituisce una lista di frame (array numpy)
 - **`save_video(frames, output_path)`**: Salva i frame in un file AVI (codec XVID, 24 fps)
 
-### 6. **Sistema di Cache - Stubs** (`utils/stubs_utils.py`)
+### 8. **Sistema di Cache - Stubs** (`utils/stubs_utils.py`)
 Sistema di caching per evitare ricalcoli costosi:
 - **`save_stubs(stub_path, object)`**: Salva un oggetto Python in formato pickle
 - **`read_stubs(read_from_stub, stub_path)`**: Carica un oggetto dalla cache se esiste
 
-### 7. **Utility Bounding Box** (`utils/bbox_utils.py`)
+### 9. **Utility Bounding Box** (`utils/bbox_utils.py`)
 - **`get_center_of_bbox(bbox)`**: Calcola il centro di un bounding box
 - **`get_bbox_width(bbox)`**: Calcola la larghezza di un bounding box
 
@@ -144,8 +172,9 @@ python main.py
 
 Il programma:
 1. Legge `input_videos/video_1.mp4`
-2. Esegue il tracking (o usa la cache da `stubs/player_tracks.stub.pkl`)
-3. Genera `output_videos/output_video.avi` con le annotazioni
+2. Esegue il tracking dei giocatori (o usa la cache da `stubs/player_tracks.stub.pkl`)
+3. Esegue il tracking del pallone (o usa la cache da `stubs/ball_tracks.stub.pkl`)
+4. Genera `output_videos/output_video.avi` con le annotazioni
 
 ---
 
@@ -162,29 +191,27 @@ Il programma:
 │  read_video()   │  Estrae tutti i frame
 └────────┬────────┘
          │
-         ▼
-┌─────────────────┐
-│  PlayerTracker  │
-│  ┌────────────┐ │
-│  │ YOLO       │ │  Detection giocatori
-│  │ Detection  │ │  (batch da 20 frame)
-│  └─────┬──────┘ │
-│        ▼        │
-│  ┌────────────┐ │
-│  │ ByteTrack  │ │  Assegna ID persistenti
-│  │ Tracking   │ │  ai giocatori
-│  └────────────┘ │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  PlayerTracks   │  Cache opzionale
-│  Drawer         │  (stubs/*.pkl)
-│  ┌────────────┐ │
-│  │ draw_      │ │  Ellissi + ID
-│  │ ellypse()  │ │
-│  └────────────┘ │
-└────────┬────────┘
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌────────┐ ┌────────┐
+│ Player │ │  Ball  │
+│ Tracker│ │ Tracker│
+│ (YOLO  │ │ (YOLO  │
+│  +     │ │  +     │
+│ByteTrack│ │MaxConf)│
+└───┬────┘ └───┬────┘
+    │          │
+    ▼          ▼
+┌────────┐ ┌────────┐
+│ Player │ │  Ball  │
+│ Tracks │ │ Tracks │
+│ Drawer │ │ Drawer │
+│(ellissi│ │(triangoli)│
+│  + ID) │ │        │
+└───┬────┘ └───┬────┘
+    │          │
+    └────┬─────┘
          │
          ▼
 ┌─────────────────┐
@@ -198,10 +225,10 @@ Il programma:
 ## 🔮 Sviluppi Futuri
 
 Il progetto prevede l'implementazione di:
-- **Ball Tracking**: Rilevamento e tracking del pallone (`ball_detector_model.pt`)
 - **Court Detection**: Rilevamento dei keypoint del campo (`court_keypoint_detector.pt`)
 - **Analisi tattica**: Posizionamento dei giocatori rispetto al campo
 - **Statistiche**: Velocità, distanze percorse, heat map
+- **Interpolazione pallone**: Riempimento dei frame dove il pallone non è rilevato
 
 ---
 
@@ -211,6 +238,7 @@ Il progetto prevede l'implementazione di:
 models/*.pt          # Modelli troppo grandi
 input_videos/        # Video di input
 runs/                # Output YOLO
+stubs/               # Cache delle tracce
 __pycache__/         # Cache Python
 .venv/               # Virtual environment
 ```
