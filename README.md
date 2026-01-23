@@ -12,9 +12,10 @@ VisionProject è un'applicazione di computer vision che analizza video di partit
 - **Rilevare** i giocatori e il pallone presenti in ogni frame
 - **Tracciare** i movimenti dei giocatori nel tempo (tracking multi-oggetto con ByteTrack)
 - **Tracciare** la posizione del pallone (detection con selezione per confidence)
-- **Visualizzare** le tracce con annotazioni grafiche (ellissi per i giocatori, triangoli per il pallone)
+- **Assegnare i giocatori alle squadre** in base al colore della maglia (utilizzando Fashion-CLIP)
+- **Visualizzare** le tracce con annotazioni grafiche (ellissi colorate per squadra, triangoli per il pallone)
 
-Il sistema utilizza modelli YOLO pre-addestrati per la detection e l'algoritmo ByteTrack per il tracking persistente degli oggetti tra i frame.
+Il sistema utilizza modelli YOLO pre-addestrati per la detection, l'algoritmo ByteTrack per il tracking persistente degli oggetti tra i frame, e il modello Fashion-CLIP per il riconoscimento dei colori delle maglie.
 
 ---
 
@@ -36,6 +37,9 @@ VisionProject/
 │   ├── player_tracks_drawer.py # Classe PlayerTracksDrawer
 │   ├── ball_tracks_drawer.py  # Classe BallTracksDrawer
 │   └── utils.py               # Funzioni di disegno (ellissi, triangoli)
+├── team_assigner/             # Modulo assegnazione squadre
+│   ├── __init__.py
+│   └── team_assigner.py       # Classe TeamAssigner (Fashion-CLIP)
 ├── utils/                     # Utility generiche
 │   ├── __init__.py
 │   ├── video_utils.py         # Lettura/scrittura video
@@ -99,7 +103,7 @@ Classe responsabile del rilevamento del pallone:
 ### 4. **PlayerTracksDrawer** (`drawers/player_tracks_drawer.py`)
 Classe per la visualizzazione delle tracce dei giocatori:
 
-- **`draw(video_frames, tracks)`**: Per ogni frame, disegna un'ellisse rossa sotto ogni giocatore con il suo ID di tracking
+- **`draw(video_frames, tracks, player_assignments)`**: Per ogni frame, disegna un'ellisse colorata (in base alla squadra) sotto ogni giocatore con il suo ID di tracking
 
 ### 5. **BallTracksDrawer** (`drawers/ball_tracks_drawer.py`)
 Classe per la visualizzazione della posizione del pallone:
@@ -128,6 +132,17 @@ Sistema di caching per evitare ricalcoli costosi:
 - **`get_center_of_bbox(bbox)`**: Calcola il centro di un bounding box
 - **`get_bbox_width(bbox)`**: Calcola la larghezza di un bounding box
 
+### 10. **TeamAssigner** (`team_assigner/team_assigner.py`)
+Classe per l'assegnazione dei giocatori alle squadre in base al colore della maglia:
+
+- **`__init__(team_1_class_name, team_2_class_name)`**: Inizializza i nomi dei colori delle squadre (default: "white shirt", "dark blue shirt")
+- **`load_model()`**: Carica il modello Fashion-CLIP per il riconoscimento dei colori
+- **`get_player_color(frame, bbox)`**: Classifica il colore della maglia di un giocatore usando CLIP
+- **`get_player_team(frame, player_bbox, player_id)`**: Assegna un giocatore a una squadra (1 o 2) in base al colore
+- **`get_player_teams_across_frames(video_frames, player_tracks, read_from_stub, stub_path)`**: Assegna le squadre a tutti i giocatori in tutti i frame
+
+> ⚠️ **Limitazione attuale**: Il sistema riconosce attualmente solo **due colori hardcoded**: `"white shirt"` (squadra 1) e `"dark blue shirt"` (squadra 2). Per supportare altri colori, è necessario modificare i parametri `team_1_class_name` e `team_2_class_name` nel costruttore di `TeamAssigner` in `main.py`.
+
 ---
 
 ## 🛠️ Tecnologie Utilizzate
@@ -139,6 +154,8 @@ Sistema di caching per evitare ricalcoli costosi:
 | **Supervision** | 0.27.0 | ByteTrack e utility per detection |
 | **OpenCV** | 4.13.0 | Elaborazione video e disegno |
 | **PyTorch** | 2.9.1 | Backend per YOLO |
+| **Transformers** | latest | Libreria Hugging Face per CLIP |
+| **Fashion-CLIP** | latest | Modello per riconoscimento colori maglie |
 
 ---
 
@@ -158,7 +175,7 @@ python -m venv .venv
 
 ### 3. Installare le dipendenze
 ```bash
-pip install ultralytics supervision opencv-python
+pip install ultralytics supervision opencv-python transformers pillow
 ```
 
 ### 4. Posizionare i modelli
@@ -176,7 +193,8 @@ Il programma:
 1. Legge `input_videos/video_1.mp4`
 2. Esegue il tracking dei giocatori (o usa la cache da `stubs/player_tracks.stub.pkl`)
 3. Esegue il tracking del pallone (o usa la cache da `stubs/ball_tracks.stub.pkl`)
-4. Genera `output_videos/output_video.avi` con le annotazioni
+4. Assegna ogni giocatore a una squadra in base al colore della maglia (o usa la cache da `stubs/player_assignement_stub.pkl`)
+5. Genera `output_videos/output_video.avi` con le annotazioni (ellissi colorate per squadra, triangolo per il pallone)
 
 ---
 
@@ -227,6 +245,7 @@ Il programma:
 ## 🔮 Sviluppi Futuri
 
 Il progetto prevede l'implementazione di:
+- **Riconoscimento automatico colori squadre**: Attualmente il sistema riconosce solo "white shirt" e "dark blue shirt". Si prevede di implementare un rilevamento automatico dei colori dominanti delle squadre
 - **Court Detection**: Rilevamento dei keypoint del campo (`court_keypoint_detector.pt`)
 - **Analisi tattica**: Posizionamento dei giocatori rispetto al campo
 - **Statistiche**: Velocità, distanze percorse, heat map
