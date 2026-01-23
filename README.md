@@ -86,6 +86,8 @@ Classe responsabile del rilevamento del pallone:
   - Se esiste una cache (stub), la carica per evitare ricalcoli
   - Seleziona la detection con confidence massima per ogni frame
   - Salva i risultati in cache per usi futuri
+- **`remuve_wrong_detections(ball_positions)`**: Filtra outlier spaziali rimuovendo rimbalzi irreali tra frame (distanza massima scalata per il gap tra frame)
+- **`interpolate_ball_positions(ball_positions)`**: Usa `pandas` per interpolare e backfillare le posizioni mancanti del pallone
 
 **Output**: Lista di dizionari, uno per frame, con struttura:
 ```python
@@ -228,7 +230,7 @@ Il progetto prevede l'implementazione di:
 - **Court Detection**: Rilevamento dei keypoint del campo (`court_keypoint_detector.pt`)
 - **Analisi tattica**: Posizionamento dei giocatori rispetto al campo
 - **Statistiche**: Velocità, distanze percorse, heat map
-- **Interpolazione pallone**: Riempimento dei frame dove il pallone non è rilevato
+- **Interpolazione pallone avanzata**: Affinare i filtri e l'interpolazione per casi limite
 
 ---
 
