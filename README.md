@@ -36,6 +36,7 @@ VisionProject/
 │   ├── __init__.py
 │   ├── player_tracks_drawer.py # Classe PlayerTracksDrawer
 │   ├── ball_tracks_drawer.py  # Classe BallTracksDrawer
+│   ├── team_ball_control_drawer.py # Classe TeamBallControlDrawer
 │   └── utils.py               # Funzioni di disegno (ellissi, triangoli)
 ├── team_assigner/             # Modulo assegnazione squadre
 │   ├── __init__.py
@@ -110,7 +111,20 @@ Classe per la visualizzazione della posizione del pallone:
 
 - **`draw(video_frames, tracks)`**: Per ogni frame, disegna un triangolo verde sopra il pallone
 
-### 6. **Funzioni di Disegno** (`drawers/utils.py`)
+### 6. **TeamBallControlDrawer** (`drawers/team_ball_control_drawer.py`)
+Classe per il calcolo e visualizzazione delle statistiche di possesso palla per squadra:
+
+- **`get_team_ball_control(player_assignment, ball_aquisition)`**: Calcola quale squadra ha il controllo del pallone per ogni frame, restituendo array (1=Team1, 2=Team2, -1=nessuno)
+- **`draw(video_frames, player_assignment, ball_aquisition)`**: Disegna overlay semi-trasparente con percentuali di possesso palla per entrambe le squadre
+- **`draw_frame(frame, frame_num, team_ball_control)`**: Disegna statistiche su singolo frame con rettangolo semi-trasparente e testo percentuale
+
+**Output**: Overlay bottom-right con statistiche real-time tipo:
+```
+Team 1 Ball Control: 45.23%
+Team 2 Ball Control: 54.77%
+```
+
+### 7. **Funzioni di Disegno** (`drawers/utils.py`)
 - **`draw_ellypse(frame, bbox, color, track_id)`**: 
   - Disegna un'ellisse ai piedi del giocatore (posizione y2 del bounding box)
   - Aggiunge un rettangolo con l'ID del track
@@ -129,8 +143,11 @@ Sistema di caching per evitare ricalcoli costosi:
 - **`read_stubs(read_from_stub, stub_path)`**: Carica un oggetto dalla cache se esiste
 
 ### 9. **Utility Bounding Box** (`utils/bbox_utils.py`)
-- **`get_center_of_bbox(bbox)`**: Calcola il centro di un bounding box
-- **`get_bbox_width(bbox)`**: Calcola la larghezza di un bounding box
+Utility per operazioni su bounding box:
+
+- **`get_center_of_bbox(bbox)`**: Calcola il centro geometrico di un bbox (x1,y1,x2,y2)
+- **`get_bbox_width(bbox)`**: Calcola la larghezza di un bbox
+- **`measure_distance(point1, point2)`**: Calcola distanza euclidea tra due punti (usato per ball acquisition)
 
 ### 10. **TeamAssigner** (`team_assigner/team_assigner.py`)
 Classe per l'assegnazione dei giocatori alle squadre in base al colore della maglia:
@@ -142,6 +159,40 @@ Classe per l'assegnazione dei giocatori alle squadre in base al colore della mag
 - **`get_player_teams_across_frames(video_frames, player_tracks, read_from_stub, stub_path)`**: Assegna le squadre a tutti i giocatori in tutti i frame
 
 > ⚠️ **Limitazione attuale**: Il sistema riconosce attualmente solo **due colori hardcoded**: `"white shirt"` (squadra 1) e `"dark blue shirt"` (squadra 2). Per supportare altri colori, è necessario modificare i parametri `team_1_class_name` e `team_2_class_name` nel costruttore di `TeamAssigner` in `main.py`.
+
+### 11. **BallAquisitionDetector** (`ball_acquisition/ball_aquisition_detector.py`)
+Classe per il rilevamento del possesso palla da parte dei giocatori:
+
+- **`__init__()`**: Inizializza soglie:
+  - `possession_threshold` (50px): Distanza massima per possession senza alta containment
+  - `min_frames` (11): Frame consecutivi richiesti per confermare il possesso
+  - `containment_threshold` (0.8): Ratio di contenimento del pallone nel bbox del giocatore
+  
+- **`get_key_basketball_player_assignment_points(player_bbox, ball_center)`**: Genera punti chiave attorno al bbox del giocatore (corners, edges, center) per misure di distanza accurate
+  
+- **`calculate_ball_containment_ratio(player_bbox, ball_bbox)`**: Calcola la percentuale di pallone contenuta nel bbox del giocatore (area intersezione / area pallone)
+  
+- **`find_minimum_distance_to_ball(ball_center, player_bbox)`**: Trova la minima distanza dal centro pallone ai punti chiave del giocatore
+  
+- **`find_best_candidate_for_possession(ball_center, player_tracks_frame, ball_bbox)`**: 
+  - Priorità 1: Giocatori con high containment (>80%)
+  - Priorità 2: Giocatori entro soglia di distanza (<50px)
+  - Restituisce player_id o -1
+  
+- **`detect_ball_possession(player_tracks, ball_tracks)`**: Rileva possesso per ogni frame, richiedendo 11 frame consecutivi per confermare
+
+**Logica di rilevamento**:
+1. Per ogni frame, calcola distanza e containment verso ogni giocatore
+2. Prioritizza giocatori con alta containment (ball quasi dentro il bbox)
+3. Se nessuno ha alta containment, seleziona il più vicino entro soglia
+4. Conferma il possesso solo se persistente per min_frames consecutivi
+
+### 12. **Utility Bounding Box** (`utils/bbox_utils.py`)
+Utility per operazioni su bounding box:
+
+- **`get_center_of_bbox(bbox)`**: Calcola il centro geometrico di un bbox (x1,y1,x2,y2)
+- **`get_bbox_width(bbox)`**: Calcola la larghezza di un bbox
+- **`measure_distance(point1, point2)`**: Calcola distanza euclidea tra due punti (usato per ball acquisition)
 
 ---
 
@@ -156,6 +207,9 @@ Classe per l'assegnazione dei giocatori alle squadre in base al colore della mag
 | **PyTorch** | 2.9.1 | Backend per YOLO |
 | **Transformers** | latest | Libreria Hugging Face per CLIP |
 | **Fashion-CLIP** | latest | Modello per riconoscimento colori maglie |
+
+---
+
 
 ---
 
@@ -195,6 +249,18 @@ Il programma:
 3. Esegue il tracking del pallone (o usa la cache da `stubs/ball_tracks.stub.pkl`)
 4. Assegna ogni giocatore a una squadra in base al colore della maglia (o usa la cache da `stubs/player_assignement_stub.pkl`)
 5. Genera `output_videos/output_video.avi` con le annotazioni (ellissi colorate per squadra, triangolo per il pallone)
+
+### Troubleshooting
+
+**Out of Memory**: Attivare la riduzione di risoluzione in `main.py`:
+```python
+video_frames = [cv2.resize(frame, (frame.shape[1]//4, frame.shape[0]//4)) for frame in video_frames]
+```
+
+**Stubs Corrupted**: Eliminare manualmente:
+```bash
+rm stubs/*.pkl
+```
 
 ---
 
@@ -246,6 +312,7 @@ Il programma:
 
 Il progetto prevede l'implementazione di:
 - **Riconoscimento automatico colori squadre**: Attualmente il sistema riconosce solo "white shirt" e "dark blue shirt". Si prevede di implementare un rilevamento automatico dei colori dominanti delle squadre
+- **Visualizzazione ball acquisition**: Integrare il `BallAquisitionDetector` nel pipeline di disegno per visualizzare il possesso palla
 - **Court Detection**: Rilevamento dei keypoint del campo (`court_keypoint_detector.pt`)
 - **Analisi tattica**: Posizionamento dei giocatori rispetto al campo
 - **Statistiche**: Velocità, distanze percorse, heat map

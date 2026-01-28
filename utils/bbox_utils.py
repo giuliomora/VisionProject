@@ -7,3 +7,6 @@ def get_bbox_width(bbox):
     x1,y1,x2,y2 = bbox
 
     return bbox[2] - bbox[0]
+
+def measure_distance(point1, point2):
+    return ((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2) ** 0.5

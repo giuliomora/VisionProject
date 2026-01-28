@@ -2,7 +2,8 @@ from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 import cv2
 import sys
-sys.path.append("../")
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from utils import read_stubs, save_stubs
 
 
@@ -19,7 +20,9 @@ class TeamAssigner:
 
     def load_model(self):
         self.model = CLIPModel.from_pretrained("patrickjohncyh/fashion-clip")
-        self.processor = CLIPProcessor.from_pretrained("patrickjohncyh/fashion-clip")
+        self.processor = CLIPProcessor.from_pretrained(
+            "patrickjohncyh/fashion-clip", use_fast=False
+        )
 
     def get_player_color(self, frame, bbox):
         image = frame[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
