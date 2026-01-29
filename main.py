@@ -10,6 +10,7 @@ from drawers import (PlayerTracksDrawer,
 from team_assigner import TeamAssigner
 from ball_acquisition import BallAquisitionDetector
 from pass_and_interception_detector import PassAndInterceptionDetector
+from court_keypoints_detector import CourtKeypointDetector
 
 def main():
         
