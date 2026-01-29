@@ -220,6 +220,29 @@ Team 1 - Passes: 12 Interceptions: 3
 Team 2 - Passes: 15 Interceptions: 5
 ```
 
+### 14. **CourtKeypointDetector** (`court_keypoints_detector/court_keypoints_detector.py`)
+Classe per il rilevamento dei keypoint del campo:
+
+- **`__init__(model_path)`**: Inizializza il modello YOLO per la detection dei keypoint del campo
+- **`get_court_keypoints(frames, read_from_stub, stub_path)`**: 
+  - Rileva i keypoint del campo (linee, angoli, etc.) su tutti i frame in batch da 20
+  - Se esiste una cache (stub), la carica per evitare ricalcoli
+  - Utilizza confidence threshold di 0.5 per filtrare detection deboli
+  - Salva i risultati in cache per usi futuri
+
+**Output**: Lista di keypoint per frame, formato PyTorch tensor con coordinate (x, y)
+
+### 15. **CourtKeypointDrawer** (`drawers/court_keypoins_drawer.py`)
+Classe per la visualizzazione dei keypoint del campo:
+
+- **`__init__()`**: Inizializza con colore rosso (`#ff2c2c`) per i keypoint
+- **`draw(frames, court_keypoints)`**: Disegna keypoint e relative label su tutti i frame
+  - Utilizza `VertexAnnotator` per disegnare i punti (raggio 8px)
+  - Utilizza `VertexLabelAnnotator` per le etichette numeriche
+  - Converte tensor PyTorch in numpy array per compatibilità
+
+**Output**: Frame con keypoint rossi numerati per identificare i punti del campo
+
 ---
 
 ## 🛠️ Tecnologie Utilizzate
