@@ -16,23 +16,7 @@ class TacticalViewDrawer:
              tactical_player_positions=None,
              player_assignment=None,
              ball_acquisition=None):
-        """
-        Draw tactical view with court keypoints and player positions.
-        
-        Args:
-            video_frames (list): List of video frames to draw on.
-            court_image_path (str): Path to the court image.
-            width (int): Width of the tactical view.
-            height (int): Height of the tactical view.
-            tactical_court_keypoints (list): List of court keypoints in tactical view.
-            tactical_player_positions (list, optional): List of dictionaries mapping player IDs to 
-                their positions in tactical view coordinates.
-            player_assignment (list, optional): List of dictionaries mapping player IDs to team assignments.
-            ball_acquisition (list, optional): List indicating which player has the ball in each frame.
-            
-        Returns:
-            list: List of frames with tactical view drawn on them.
-        """
+        """Disegna la vista tattica con i punti chiave del campo e le posizioni dei giocatori."""
         court_image = cv2.imread(court_image_path)
         court_image = cv2.resize(court_image, (width, height))
 

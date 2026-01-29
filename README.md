@@ -27,7 +27,7 @@ VisionProject/
 ├── models/                    # Modelli YOLO pre-addestrati
 │   ├── player_detector.pt     # Modello per detection giocatori
 │   ├── ball_detector_model.pt # Modello per detection pallone
-│   └── court_keypoint_detector.pt # Modello per keypoint campo (futuro)
+│   └── court_keypoint_detector.pt # Modello per keypoint campo
 ├── trackers/                  # Moduli di tracking
 │   ├── __init__.py
 │   ├── playerTracker.py       # Classe PlayerTracker
@@ -37,10 +37,28 @@ VisionProject/
 │   ├── player_tracks_drawer.py # Classe PlayerTracksDrawer
 │   ├── ball_tracks_drawer.py  # Classe BallTracksDrawer
 │   ├── team_ball_control_drawer.py # Classe TeamBallControlDrawer
+│   ├── pass_and_interceptions_drawer.py # Classe PassInterceptionDrawer
+│   ├── court_keypoins_drawer.py # Classe CourtKeypointDrawer
+│   ├── tactical_view_drawer.py # Classe TacticalViewDrawer
+│   ├── frame_number_drawer.py # Classe FrameNumberDrawer
+│   ├── speed_and_distance_drawer.py # Classe SpeedAndDistanceDrawer
 │   └── utils.py               # Funzioni di disegno (ellissi, triangoli)
 ├── team_assigner/             # Modulo assegnazione squadre
 │   ├── __init__.py
 │   └── team_assigner.py       # Classe TeamAssigner (Fashion-CLIP)
+├── ball_acquisition/          # Modulo rilevamento possesso palla
+│   ├── __init__.py
+│   └── ball_aquisition_detector.py # Classe BallAquisitionDetector
+├── pass_and_interception_detector/ # Modulo rilevamento passaggi
+│   ├── __init__.py
+│   └── pass_and_interception_detector.py # Classe PassAndInterceptionDetector
+├── court_keypoints_detector/  # Modulo rilevamento keypoint campo
+│   ├── __init__.py
+│   └── court_keypoints_detector.py # Classe CourtKeypointDetector
+├── tactical_view_converter/   # Modulo conversione vista tattica
+│   ├── __init__.py
+│   ├── tactical_view_converter.py # Classe TacticalViewConverter
+│   └── homography.py          # Utility omografia
 ├── utils/                     # Utility generiche
 │   ├── __init__.py
 │   ├── video_utils.py         # Lettura/scrittura video
@@ -48,7 +66,10 @@ VisionProject/
 │   └── bbox_utils.py          # Utility per bounding box
 ├── input_videos/              # Video di input
 ├── output_videos/             # Video processati
+├── images/                    # Immagini del campo (PNG)
 ├── stubs/                     # Cache delle tracce (pickle)
+├── configs.py                 # Configurazioni globali
+├── requirements.txt           # Dipendenze Python
 └── .venv/                     # Virtual environment (non versionato)
 ```
 
@@ -202,7 +223,7 @@ Classe per il rilevamento di passaggi e intercetti:
 
 **Output**: Liste parallele a `ball_acquisition` per ogni frame
 
-### 13. **PassInterceptionDrawer** (`drawers/pass_and_iterceptions_drawer.py`)
+### 13. **PassInterceptionDrawer** (`drawers/pass_and_interceptions_drawer.py`)
 Classe per la visualizzazione di passaggi e intercetti:
 
 - **`get_stats(passes, interceptions)`**: Conta totali di passaggi e intercetti per squadra fino a frame corrente
@@ -220,7 +241,17 @@ Team 1 - Passes: 12 Interceptions: 3
 Team 2 - Passes: 15 Interceptions: 5
 ```
 
-### 14. **CourtKeypointDetector** (`court_keypoints_detector/court_keypoints_detector.py`)
+### 14. **FrameNumberDrawer** (`drawers/frame_number_drawer.py`)
+Classe per la visualizzazione del numero del frame corrente:
+
+- **`draw(video_frames)`**: Disegna il numero del frame in alto a sinistra
+  - Posizione fissa (20px da sinistra, 50px da sopra)
+  - Testo bianco su sfondo nero semi-trasparente
+  - Utile per debugging e sincronizzazione
+
+**Output**: Numero del frame progressivo in ogni frame
+
+### 15. **CourtKeypointDetector** (`court_keypoints_detector/court_keypoints_detector.py`)
 Classe per il rilevamento dei keypoint del campo:
 
 - **`__init__(model_path)`**: Inizializza il modello YOLO per la detection dei keypoint del campo
@@ -232,7 +263,7 @@ Classe per il rilevamento dei keypoint del campo:
 
 **Output**: Lista di keypoint per frame, formato PyTorch tensor con coordinate (x, y)
 
-### 15. **CourtKeypointDrawer** (`drawers/court_keypoins_drawer.py`)
+### 16. **CourtKeypointDrawer** (`drawers/court_keypoins_drawer.py`)
 Classe per la visualizzazione dei keypoint del campo:
 
 - **`__init__()`**: Inizializza con colore rosso (`#ff2c2c`) per i keypoint
@@ -243,18 +274,60 @@ Classe per la visualizzazione dei keypoint del campo:
 
 **Output**: Frame con keypoint rossi numerati per identificare i punti del campo
 
----
+### 17. **TacticalViewConverter** (`tactical_view_converter/tactical_view_converter.py`)
+Classe per la conversione delle posizioni dal sistema di coordinate video a quello tattico del campo:
+
+- **`__init__(court_image_path)`**: Inizializza il converter con:
+  - Dimensioni campo tattico: 300x161 pixel (proporzioni 28m x 15m reali)
+  - Keypoint di riferimento del campo per l'omografia
+  - Percorso all'immagine del campo tattico
+
+- **`validate_keypoints(keypoints_list)`**: Valida i keypoint rilevati dal modello di court detection
+  - Confronta le distanze proporzionali tra keypoint con le distanze attese
+  - Scarta keypoint non validi che violano la geometria del campo
+  - Mantiene la robustezza anche con detection incomplete
+
+- **`transform_players_to_tactical_view(court_keypoints_per_frame, player_tracks)`**: Trasforma le posizioni dei giocatori nel sistema di coordinate tattico
+  - Calcola la matrice di omografia per ogni frame usando i keypoint del campo validati
+  - Trasforma le posizioni foot (piedi) dei giocatori dal video al campo tattico
+  - Restituisce lista di dizionari con posizioni tattiche per ogni frame
+
+**Output**: Lista di frame con posizioni tattiche (x, y) per ogni giocatore
+
+### 18. **TacticalViewDrawer** (`drawers/tactical_view_drawer.py`)
+Classe per la visualizzazione della vista tattica del campo con i giocatori:
+
+- **`__init__(team_1_color, team_2_color)`**: Inizializza i colori per le squadre
+  - Team 1: [255, 245, 238] (bianco/azzurrino)
+  - Team 2: [128, 0, 0] (rosso scuro)
+
+- **`draw(video_frames, court_image_path, width, height, tactical_court_keypoints, tactical_player_positions, player_assignment, ball_acquisition)`**: Disegna la vista tattica completa
+  - Carica e ridimensiona l'immagine del campo (300x161 pixel)
+  - Applica trasparenza (alpha=0.6) all'overlay del campo
+  - Posiziona il campo in alto a sinistra (x=20, y=40)
+  - Disegna i giocatori come cerchi colorati in base alla squadra
+  - Disegna il possesso palla con marcatore speciale
+  - Restituisce frame annotati
+
+- **`draw_frame(frame, court_image, width, height, frame_idx, tactical_court_keypoints, tactical_player_positions, player_assignment, ball_acquisition)`**: Disegna la vista tattica su singolo frame
+  - Applica la sovrimpressione del campo
+  - Disegna i giocatori (cerchi pieni per Team 1, cerchi per Team 2)
+  - Evidenzia il giocatore con il possesso palla
+
+**Output**: Frame con overlay tattico che mostra la disposizione dei giocatori sul campo in tempo reale
 
 ## 🛠️ Tecnologie Utilizzate
 
 | Tecnologia | Versione | Utilizzo |
 |------------|----------|----------|
 | **Python** | 3.12 | Linguaggio principale |
-| **Ultralytics YOLO** | 8.4.6 | Object detection |
-| **Supervision** | 0.27.0 | ByteTrack e utility per detection |
-| **OpenCV** | 4.13.0 | Elaborazione video e disegno |
-| **PyTorch** | 2.9.1 | Backend per YOLO |
-| **Transformers** | latest | Libreria Hugging Face per CLIP |
+| **Ultralytics YOLO** | 8.3.67 | Object detection e court keypoint detection |
+| **Supervision** | 0.25.1 | ByteTrack e utility per annotazioni |
+| **OpenCV** | 4.9.0 | Elaborazione video e disegno |
+| **PyTorch** | 2.2.0 | Backend per YOLO |
+| **Pandas** | 2.0.3 | Interpolazione e manipolazione dati |
+| **NumPy** | 1.26.4 | Operazioni numeriche |
+| **Transformers** | 4.46.3 | Libreria Hugging Face per CLIP |
 | **Fashion-CLIP** | latest | Modello per riconoscimento colori maglie |
 
 ---
@@ -288,16 +361,35 @@ Inserire i file `.pt` dei modelli nella cartella `models/`
 
 ## ▶️ Esecuzione
 
+### Esecuzione base
 ```bash
 python main.py
 ```
 
-Il programma:
-1. Legge `input_videos/video_1.mp4`
-2. Esegue il tracking dei giocatori (o usa la cache da `stubs/player_tracks.stub.pkl`)
-3. Esegue il tracking del pallone (o usa la cache da `stubs/ball_tracks.stub.pkl`)
-4. Assegna ogni giocatore a una squadra in base al colore della maglia (o usa la cache da `stubs/player_assignement_stub.pkl`)
-5. Genera `output_videos/output_video.avi` con le annotazioni (ellissi colorate per squadra, triangolo per il pallone)
+Processa il video di default `input_videos/video_1.mp4` e genera `output_videos/output_video.avi`
+
+### Esecuzione con parametri
+```bash
+python main.py --input_video input_videos/video_3.mp4 --output_video output_videos/video3_analyzed.avi --stub_path stubs
+```
+
+**Parametri disponibili**:
+- `--input_video`: Percorso al video di input (default: `input_videos/video_1.mp4`)
+- `--output_video`: Percorso al video di output (default: `output_videos/output_video.avi`)
+- `--stub_path`: Percorso alla cartella con i cache (stubs) (default: `stubs`)
+
+### Pipeline di elaborazione
+Il programma elabora il video nel seguente ordine:
+1. **Lettura video**: Carica tutti i frame dall'input video
+2. **Player Tracking**: Rileva e traccia i giocatori (usa cache se disponibile)
+3. **Ball Tracking**: Rileva e traccia il pallone (filtra per confidence)
+4. **Court Keypoint Detection**: Rileva i keypoint del campo tattico
+5. **Team Assignment**: Assegna i giocatori alle squadre (CLIP-based)
+6. **Ball Acquisition**: Rileva il possesso palla
+7. **Pass/Interception Detection**: Identifica passaggi e intercetti
+8. **Tactical View Conversion**: Trasforma posizioni nel sistema tattico
+9. **Drawing**: Disegna tutti gli overlay (tracce, tattica, statistiche)
+10. **Video Output**: Salva il video processato in AVI
 
 ### Troubleshooting
 
@@ -311,61 +403,104 @@ video_frames = [cv2.resize(frame, (frame.shape[1]//4, frame.shape[0]//4)) for fr
 rm stubs/*.pkl
 ```
 
+**Video Processing Too Slow**: Abilitare CUDA se disponibile (PyTorch/YOLO useranno GPU automaticamente)
+
+**Memory Error During Video Save**: Verificare spazio disponibile e ridurre risoluzione del video di output
+
 ---
 
 ## 📊 Pipeline di Elaborazione
 
 ```
-┌─────────────────┐
-│  Video Input    │
-│  (MP4)          │
-└────────┬────────┘
+┌──────────────────┐
+│   Video Input    │
+│     (MP4)        │
+└────────┬─────────┘
          │
          ▼
-┌─────────────────┐
-│  read_video()   │  Estrae tutti i frame
-└────────┬────────┘
+┌──────────────────┐
+│  read_video()    │  Estrae tutti i frame
+└────────┬─────────┘
          │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
-┌────────┐ ┌────────┐
-│ Player │ │  Ball  │
-│ Tracker│ │ Tracker│
-│ (YOLO  │ │ (YOLO  │
-│  +     │ │  +     │
-│ByteTrack│ │MaxConf)│
-└───┬────┘ └───┬────┘
-    │          │
-    ▼          ▼
-┌────────┐ ┌────────┐
-│ Player │ │  Ball  │
-│ Tracks │ │ Tracks │
-│ Drawer │ │ Drawer │
-│(ellissi│ │(triangoli)│
-│  + ID) │ │        │
-└───┬────┘ └───┬────┘
-    │          │
-    └────┬─────┘
-         │
-         ▼
-┌─────────────────┐
-│  save_video()   │  Output AVI
-│  (XVID, 24fps)  │
-└─────────────────┘
+    ┌────┴──────────────────────┐
+    │                           │
+    ▼                           ▼
+┌─────────┐  ┌──────────┐  ┌──────────┐
+│ Player  │  │   Ball   │  │  Court   │
+│ Tracker │  │ Tracker  │  │Keypoint  │
+│ (YOLO   │  │  (YOLO   │  │Detector  │
+│ +ByteT) │  │+MaxConf) │  │  (YOLO)  │
+└────┬────┘  └────┬─────┘  └────┬─────┘
+     │            │             │
+     ▼            ▼             ▼
+ ┌────────┐  ┌────────┐  ┌──────────────┐
+ │ Player │  │  Ball  │  │ Keypoint Val │
+ │ Tracks │  │ Tracks │  │  idation &   │
+ │        │  │(+filter│  │ Homography   │
+ │        │  │ +interp│  │              │
+ └────┬───┘  └───┬────┘  └────┬─────────┘
+      │          │            │
+      └──────────┴──────┬─────┘
+                        │
+                        ▼
+        ┌───────────────────────────┐
+        │ Team Assignment (CLIP)    │
+        │ Ball Acquisition Detector │
+        │ Pass/Interception Detect  │
+        └──────────┬────────────────┘
+                   │
+        ┌──────────┴──────────┬──────────┐
+        │                     │          │
+        ▼                     ▼          ▼
+   ┌──────────┐       ┌──────────────┐ ┌────────────────┐
+   │ Player   │       │    Tactical  │ │  Ball Control  │
+   │ Tracks   │       │   View Conv. │ │  & Passes      │
+   │ Drawer   │       │              │ │   Drawer       │
+   │(ellissi) │       │              │ │   (overlay)    │
+   └────┬─────┘       └────┬─────────┘ └────────┬───────┘
+        │                  │                    │
+        │       ┌──────────┴──────────┐         │
+        │       │                     │         │
+        ▼       ▼                     ▼         ▼
+    ┌──────────────┐       ┌──────────────────┐
+    │  Ball Tracks │       │   Tactical View  │
+    │  Drawer      │       │    Drawer        │
+    │  (triangoli) │       │  (players+campo) │
+    └──────┬───────┘       └────────┬─────────┘
+           │                        │
+           └────────────┬───────────┘
+                        │
+                        ▼
+        ┌─────────────────────────┐
+        │    Composite Frames     │
+        │  (tutti gli overlay)    │
+        └────────┬────────────────┘
+                 │
+                 ▼
+        ┌─────────────────────────┐
+        │    save_video()         │
+        │ (Output AVI,24fps)      │
+        └─────────────────────────┘
 ```
 
 ---
 
 ## 🔮 Sviluppi Futuri
 
-Il progetto prevede l'implementazione di:
+Il progetto è stato recentemente ampliato con:
+- ✅ **Court Detection**: Rilevamento dei keypoint del campo (court_keypoint_detector.pt)
+- ✅ **Vista Tattica**: Conversione delle posizioni dal video al campo tattico usando omografia
+- ✅ **Visualizzazione Tattica**: Overlay con disposizione dei giocatori sul campo
+- ✅ **Possesso Palla**: Rilevamento e visualizzazione del possesso palla
+- ✅ **Passaggi e Intercetti**: Rilevamento di passaggi e intercetti tra giocatori
+- ✅ **Statistiche Ball Control**: Percentuale di controllo palla per squadra
+
+Sviluppi futuri previsti:
 - **Riconoscimento automatico colori squadre**: Attualmente il sistema riconosce solo "white shirt" e "dark blue shirt". Si prevede di implementare un rilevamento automatico dei colori dominanti delle squadre
-- **Visualizzazione ball acquisition**: Integrare il `BallAquisitionDetector` nel pipeline di disegno per visualizzare il possesso palla
-- **Court Detection**: Rilevamento dei keypoint del campo (`court_keypoint_detector.pt`)
-- **Analisi tattica**: Posizionamento dei giocatori rispetto al campo
-- **Statistiche**: Velocità, distanze percorse, heat map
-- **Interpolazione pallone avanzata**: Affinare i filtri e l'interpolazione per casi limite
+- **Statistiche avanzate**: Velocità, distanze percorse, heat map, time-to-goal
+- **Analisi tattica avanzata**: Formazioni, pressing, spazi lasciati
+- **Interpolazione pallone avanzata**: Affinare i filtri e l'interpolazione per casi limite (rimbalzi, occlusion)
+- **Supporto multi-view**: Analisi da telecamere multiple
 
 ---
 
