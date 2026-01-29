@@ -1,19 +1,18 @@
 from ultralytics import YOLO
 import supervision as sv
 import sys 
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from utils import read_stubs, save_stubs
+sys.path.append('../')
+from utils import read_stub, save_stub
 
 
 class CourtKeypointDetector:
-    """Detect court keypoints using YOLO."""
+    """Rileva i keypoint del campo usando un modello YOLO."""
     def __init__(self, model_path):
         self.model = YOLO(model_path)
     
-    def get_court_keypoints(self, frames, read_from_stub=False, stub_path=None):
-        """Detect court keypoints for all frames; read from stub if available."""
-        court_keypoints = read_stubs(read_from_stub, stub_path)
+    def get_court_keypoints(self, frames,read_from_stub=False, stub_path=None):
+        """Rileva keypoint del campo. Può leggere da stub o eseguire il modello YOLO."""
+        court_keypoints = read_stub(read_from_stub,stub_path)
         if court_keypoints is not None:
             if len(court_keypoints) == len(frames):
                 return court_keypoints
@@ -25,6 +24,6 @@ class CourtKeypointDetector:
             for detection in detections_batch:
                 court_keypoints.append(detection.keypoints)
 
-        save_stubs(stub_path, court_keypoints)
+        save_stub(stub_path,court_keypoints)
         
         return court_keypoints

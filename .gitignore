@@ -43,7 +43,6 @@ input_videos/
 runs/
 models/*.pt
 *.pt
-team_assigner/team_assigner.py
 
 # Jupyter Notebook
 .ipynb_checkpoints

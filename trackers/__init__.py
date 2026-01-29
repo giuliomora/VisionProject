@@ -1,2 +1,2 @@
-from .playerTracker import PlayerTracker
-from .ballTracker import BallTracker
+from .player_tracker import PlayerTracker
+from .ball_tracker import BallTracker

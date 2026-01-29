@@ -1,12 +1,25 @@
 from copy import deepcopy
 
 class PassAndInterceptionDetector():
-    """Detects passes and interceptions in ball possession."""
+    """
+    A class that detects passes between teammates and interceptions by opposing teams.
+    """
     def __init__(self):
         pass 
 
-    def detect_passes(self, ball_acquisition, player_assignment):
-        """Detect successful passes between same-team players."""
+    def detect_passes(self,ball_acquisition,player_assignment):
+        """
+        Detects successful passes between players of the same team.
+
+        Args:
+            ball_acquisition (list): A list indicating which player has possession of the ball in each frame.
+            player_assignment (list): A list of dictionaries indicating team assignments for each player
+                in the corresponding frame.
+
+        Returns:
+            list: A list where each element indicates if a pass occurred in that frame
+                (-1: no pass, 1: Team 1 pass, 2: Team 2 pass).
+        """
         
         passes = [-1] * len(ball_acquisition)
         prev_holder=-1
@@ -28,8 +41,19 @@ class PassAndInterceptionDetector():
 
         return passes
 
-    def detect_interceptions(self, ball_acquisition, player_assignment):
-        """Detect interceptions where possession changes between opposing teams."""
+    def detect_interceptions(self,ball_acquisition,player_assignment):
+        """
+        Detects interceptions where the ball possession changes between opposing teams.
+
+        Args:
+            ball_acquisition (list): A list indicating which player has possession of the ball in each frame.
+            player_assignment (list): A list of dictionaries indicating team assignments for each player
+                in the corresponding frame.
+
+        Returns:
+            list: A list where each element indicates if an interception occurred in that frame
+                (-1: no interception, 1: Team 1 interception, 2: Team 2 interception).
+        """
         interceptions = [-1] * len(ball_acquisition)
         prev_holder=-1
         previous_frame=-1

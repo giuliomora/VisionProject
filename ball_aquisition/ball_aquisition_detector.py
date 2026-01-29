@@ -1,19 +1,18 @@
 import sys 
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append('../')
 from utils.bbox_utils import measure_distance, get_center_of_bbox
 
 class BallAquisitionDetector:
-    """Detects ball possession by analyzing distance and containment ratios."""
+    """Rileva il possesso palla analizzando distanza e containment dei bbox."""
 
     def __init__(self):
-        """Initialize with default thresholds for possession detection."""
+        """Inizializza soglie di default per distanza, frame minimi e containment."""
         self.possession_threshold = 50
-        self.min_frames = 12
+        self.min_frames = 11
         self.containment_threshold = 0.8
         
     def get_key_basketball_player_assignment_points(self, player_bbox,ball_center):
-        """Return key points around player bbox for accurate distance measurement."""
+        """Calcola punti chiave attorno al bbox per misurare la distanza dalla palla."""
         ball_center_x = ball_center[0]
         ball_center_y = ball_center[1]
 
@@ -31,21 +30,21 @@ class BallAquisitionDetector:
             output_points.append((ball_center_x, y2))
 
         output_points += [
-            (x1 + width//2, y1),          # top center
-            (x2, y1),                      # top right
-            (x1, y1),                      # top left
-            (x2, y1 + height//2),          # center right
-            (x1, y1 + height//2),          # center left
-            (x1 + width//2, y1 + height//2), # center point
-            (x2, y2),                      # bottom right
-            (x1, y2),                      # bottom left
-            (x1 + width//2, y2),          # bottom center
-            (x1 + width//2, y1 + height//3), # mid-top center
+            (x1 + width//2, y1),
+            (x2, y1),
+            (x1, y1),
+            (x2, y1 + height//2),
+            (x1, y1 + height//2),
+            (x1 + width//2, y1 + height//2),
+            (x2, y2),
+            (x1, y2),
+            (x1 + width//2, y2),
+            (x1 + width//2, y1 + height//3),
         ]
         return output_points
     
     def calculate_ball_containment_ratio(self, player_bbox, ball_bbox):
-        """Return ratio of ball contained within player bbox (0.0 to 1.0)."""
+        """Calcola il rapporto di contenimento palla nel bbox del giocatore (0.0-1.0)."""
         px1, py1, px2, py2 = player_bbox
         bx1, by1, bx2, by2 = ball_bbox
         
@@ -63,12 +62,12 @@ class BallAquisitionDetector:
         return intersection_area / ball_area
     
     def find_minimum_distance_to_ball(self, ball_center, player_bbox):
-        """Return min distance from ball center to any key point on player bbox."""
+        """Calcola la distanza minima tra il centro palla e i punti chiave del bbox."""
         key_points = self.get_key_basketball_player_assignment_points(player_bbox,ball_center)
         return min(measure_distance(ball_center, point) for point in key_points)
     
     def find_best_candidate_for_possession(self, ball_center, player_tracks_frame, ball_bbox):
-        """Find player most likely to have ball; prioritize high containment then distance."""
+        """Seleziona il giocatore più probabile. Ritorna player_id o -1."""
         high_containment_players = []
         regular_distance_players = []
         
@@ -85,12 +84,10 @@ class BallAquisitionDetector:
             else:
                 regular_distance_players.append((player_id, min_distance))
 
-        # First priority: players with high containment
         if high_containment_players:
             best_candidate = max(high_containment_players, key=lambda x: x[1])
             return best_candidate[0]
             
-        # Second priority: players within distance threshold
         if regular_distance_players:
             best_candidate = min(regular_distance_players, key=lambda x: x[1])
             if best_candidate[1] < self.possession_threshold:
@@ -99,7 +96,7 @@ class BallAquisitionDetector:
         return -1
     
     def detect_ball_possession(self, player_tracks, ball_tracks):
-        """Detect possession per frame; require min_frames consecutive frames for confirmation."""
+        """Rileva il possesso palla per frame. Ritorna lista di player_id o -1."""
         num_frames = len(ball_tracks)
         possession_list = [-1] * num_frames
         consecutive_possession_count = {}

@@ -1,22 +1,42 @@
-from .utils import draw_triangle
+from .utils import draw_traingle
 
 class BallTracksDrawer:
-    def __init__(self):
-        self.ball_pointer_color = (0, 255, 0)  # Green color for ball pointer
+    """
+    A drawer class responsible for drawing ball tracks on video frames.
 
+    Attributes:
+        ball_pointer_color (tuple): The color used to draw the ball pointers (in BGR format).
+    """
+
+    def __init__(self):
+        """
+        Initialize the BallTracksDrawer instance with default settings.
+        """
+        self.ball_pointer_color = (0, 255, 0)
 
     def draw(self, video_frames, tracks):
+        """
+        Draws ball pointers on each video frame based on provided tracking information.
+
+        Args:
+            video_frames (list): A list of video frames (as NumPy arrays or image objects).
+            tracks (list): A list of dictionaries where each dictionary contains ball information
+                for the corresponding frame.
+
+        Returns:
+            list: A list of processed video frames with drawn ball pointers.
+        """
         output_video_frames = []
         for frame_num, frame in enumerate(video_frames):
-            output_frame = frame.copy()
+            frame = frame.copy()
             ball_dict = tracks[frame_num]
-            for _, track in ball_dict.items():
-                bbox = track['bbox']
-                if bbox is None:
+
+            # Draw ball 
+            for _, ball in ball_dict.items():
+                if ball["bbox"] is None:
                     continue
-                output_frame = draw_triangle(frame, bbox, self.ball_pointer_color)
+                frame = draw_traingle(frame, ball["bbox"],self.ball_pointer_color)
 
-                
-            output_video_frames.append(output_frame)
-
+            output_video_frames.append(frame)
+            
         return output_video_frames
