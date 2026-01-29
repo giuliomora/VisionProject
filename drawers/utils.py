@@ -51,17 +51,16 @@ def draw_ellypse(frame, bbox, color, track_id=None):
                      cv2.FILLED
                      )
         
-        x1_text = x1_rect + 12
+        x1_text = x_center - 8
         if track_id > 99:
-            x1_text -= 10
+            x1_text -= 8
 
-        
         cv2.putText(frame, 
                     str(track_id), 
-                    (int(x1_text), int(y2_rect) + 15), 
+                    (int(x1_text), int(y2_rect) - 5), 
                     cv2.FONT_HERSHEY_SIMPLEX, 
                     0.6, 
-                    (0, 0, 0),
+                    (255, 255, 255),
                     2
                     )
         

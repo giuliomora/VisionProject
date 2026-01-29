@@ -1,21 +1,57 @@
-# Modelli (troppo grandi per GitHub)
-models/*.pt
-*.pt
-
-# Video
-input_videos/
-runs/
-
-# Stubs (cache tracce)
-stubs/
-
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
 .venv/
 venv/
+ENV/
+env/
+
 # IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project-specific
+stubs/
+output_videos/
+input_videos/
+runs/
+models/*.pt
+*.pt
+team_assigner/team_assigner.py
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment
+.env
+.env.local
 
 # macOS
 .DS_Store

@@ -24,11 +24,7 @@ class PlayerTracksDrawer:
 
             player_id_has_ball = ball_aquisition[frame_num]
 
-            if track_id == player_id_has_ball:
-                # highlight player with ball
-                frame = draw_triangle(frame, player['bbox'], (0,255,0))
-
-            # ora draw platers tracked
+            # draw players tracked
             for track_id, player in player_dict.items():
                 team_id = player_assignment_for_frame.get(track_id, self.default_player_team_id)
 
@@ -38,6 +34,10 @@ class PlayerTracksDrawer:
                     color = self.team_2_color
 
                 frame = draw_ellypse(frame, player['bbox'], color, track_id)
+                
+                if track_id == player_id_has_ball:
+                    # highlight player with ball
+                    frame = draw_triangle(frame, player['bbox'], (0,0,255))
             
             output_video_frames.append(frame)
 

@@ -187,12 +187,38 @@ Classe per il rilevamento del possesso palla da parte dei giocatori:
 3. Se nessuno ha alta containment, seleziona il più vicino entro soglia
 4. Conferma il possesso solo se persistente per min_frames consecutivi
 
-### 12. **Utility Bounding Box** (`utils/bbox_utils.py`)
-Utility per operazioni su bounding box:
+### 12. **PassAndInterceptionDetector** (`pass_and_interception_detector/pass_and_interception_detector.py`)
+Classe per il rilevamento di passaggi e intercetti:
 
-- **`get_center_of_bbox(bbox)`**: Calcola il centro geometrico di un bbox (x1,y1,x2,y2)
-- **`get_bbox_width(bbox)`**: Calcola la larghezza di un bbox
-- **`measure_distance(point1, point2)`**: Calcola distanza euclidea tra due punti (usato per ball acquisition)
+- **`detect_passes(ball_acquisition, player_assignment)`**: Rileva passaggi riusciti tra giocatori della stessa squadra
+  - Identifica cambi di possesso tra frame
+  - Verifica che il possesso passi tra giocatori della stessa squadra
+  - Restituisce lista con 1=passaggio Team1, 2=passaggio Team2, -1=nessuno
+
+- **`detect_interceptions(ball_acquisition, player_assignment)`**: Rileva intercetti da parte delle squadre avversarie
+  - Identifica cambi di possesso tra frame
+  - Verifica che il possesso cambi tra squadre diverse
+  - Restituisce lista con 1=intercetto Team1, 2=intercetto Team2, -1=nessuno
+
+**Output**: Liste parallele a `ball_acquisition` per ogni frame
+
+### 13. **PassInterceptionDrawer** (`drawers/pass_and_iterceptions_drawer.py`)
+Classe per la visualizzazione di passaggi e intercetti:
+
+- **`get_stats(passes, interceptions)`**: Conta totali di passaggi e intercetti per squadra fino a frame corrente
+  - Restituisce tupla (team1_passes, team2_passes, team1_interceptions, team2_interceptions)
+
+- **`draw(video_frames, passes, interceptions)`**: Disegna statistiche cumulative su tutti i frame
+
+- **`draw_frame(frame, frame_num, passes, interceptions)`**: Disegna overlay semi-trasparente con statistiche su singolo frame
+  - Rettangolo bianco semi-trasparente in basso a sinistra
+  - Visualizza passaggi e intercetti cumulativi per entrambe le squadre
+
+**Output**: Overlay tipo:
+```
+Team 1 - Passes: 12 Interceptions: 3
+Team 2 - Passes: 15 Interceptions: 5
+```
 
 ---
 
