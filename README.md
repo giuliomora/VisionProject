@@ -1,199 +1,387 @@
-# 🏀 Basketball Video Analysis
+# VisionProject
 
-Analyze basketball footage with automated detection of players, ball, team assignment, and more. This repository integrates object tracking, zero-shot classification, and custom keypoint detection for a fully annotated basketball game experience.
+**Progetto di Computer Vision and Cognitive Systems**
 
-Leveraging the convenience of Roboflow for dataset management and Ultralytics' YOLO models for both training and inference, this project provides a robust framework for basketball video analysis.
-
-Training notebooks are included to help you customize and fine-tune models to suit your specific needs, ensuring a seamless and efficient workflow.
-
-## 📁 Table of Contents
-
-1.  [Features](#-features)
-2.  [Prerequisites](#-prerequisites)
-3.  [Demo Video](#-demo-video)
-4.  [Installation](#-installation)
-5.  [Training the Models](#-training-the-models)
-6.  [Usage](#-usage)
-7.  [Project Structure](#-project-structure)
-8.  [Future Work](#-future-work)
-9.  [Contributing](#-contributing)
-10. [License](#-license)
+Sistema di tracking dei giocatori e del pallone in video di partite sportive utilizzando tecniche di deep learning e computer vision.
 
 ---
 
-## ✨ Features
+## 📋 Descrizione del Progetto
 
-- Player and ball detection/tracking using pretrained models.
-- Court keypoint detection for visualizing important zones.
-- Team assignment with jersey color classification.
-- Ball possession detection, pass detection, and interception detection.
-- Easy stubbing to skip repeated computation for fast iteration.
-- Various “drawers” to overlay detected elements onto frames.
+VisionProject è un'applicazione di computer vision che analizza video di partite sportive per:
+- **Rilevare** i giocatori e il pallone presenti in ogni frame
+- **Tracciare** i movimenti dei giocatori nel tempo (tracking multi-oggetto con ByteTrack)
+- **Tracciare** la posizione del pallone (detection con selezione per confidence)
+- **Assegnare i giocatori alle squadre** in base al colore della maglia (utilizzando Fashion-CLIP)
+- **Visualizzare** le tracce con annotazioni grafiche (ellissi colorate per squadra, triangoli per il pallone)
 
----
-
-## 🎮 Demo Video
-
-Below is the final annotated output video.
-
-[![BasketBall Analysis Demo Video](https://img.youtube.com/vi/xWpP0LjEUng/0.jpg)](https://youtu.be/xWpP0LjEUng)
-
-## 🔧 Prerequisites
-
-- Python 3.8+
-- (Optional) Docker
+Il sistema utilizza modelli YOLO pre-addestrati per la detection, l'algoritmo ByteTrack per il tracking persistente degli oggetti tra i frame, e il modello Fashion-CLIP per il riconoscimento dei colori delle maglie.
 
 ---
 
-## ⚙️ Installation
+## 🏗️ Architettura del Progetto
 
-Setup your environment locally or via Docker.
-
-### Python Environment
-
-1. Create a virtual environment (e.g., venv/conda).
-2. Install the required packages:
-
-```bash
-pip install -r requirements.txt
 ```
-
-### Docker
-
-#### Build the Docker image:
-
-```bash
-docker build -t basketball-analysis .
-```
-
-#### Verify the image:
-
-```bash
-docker images
-```
-
-## 🎓 Training the Models
-
-Harnessing the powerful tools offered by Roboflow and Ultralytics makes it straightforward to manage datasets, handle annotations, and train advanced object detection models. Roboflow provides an intuitive platform for dataset preprocessing and augmentation, while Ultralytics’ YOLO architectures (v5, v8, and beyond) deliver state-of-the-art detection performance.
-
-This repository relies on trained models for detecting basketballs, players, and court keypoints. You have two options to get these models:
-
-1. Download the Pretrained Weights
-
-   - ball_detector_model.pt  
-     (https://drive.google.com/file/d/1KejdrcEnto2AKjdgdo1U1syr5gODp6EL/view?usp=sharing)
-   - court_keypoint_detector.pt  
-     (https://drive.google.com/file/d/1nGoG-pUkSg4bWAUIeQ8aN6n7O1fOkXU0/view?usp=sharing)
-   - player_detector.pt  
-     (https://drive.google.com/file/d/1fVBLZtPy9Yu6Tf186oS4siotkioHBLHy/view?usp=sharing)
-
-   Simply download these files and place them into the `models/` folder in your project. This allows you to run the pipelines without manually retraining.
-
-2. Train Your Own Models  
-   The training scripts are provided in the `training_notebooks/` folder. These Jupyter notebooks use Roboflow datasets and the Ultralytics YOLO frameworks to train various detection tasks:
-
-   - `basketball_ball_training.ipynb`: Trains a basketball ball detector (using YOLOv5). Incorporates motion blur augmentations to improve ball detection accuracy on fast-moving game footage.
-   - `basketball_court_keypoint_training.ipynb`: Uses YOLOv8 to detect keypoints on the court (e.g., lines, corners, key zones).
-   - `basketball_player_detection_training.ipynb`: Trains a player detection model (using YOLO v11) to identify players in each frame.
-
-   You can easily run these notebooks in Google Colab or another environment with GPU access. After training, download the newly generated `.pt` files and place them in the `models/` folder.
-
-## Once you have your models in place, you may proceed with the usage steps described above. If you want to retrain or fine-tune for your specific dataset, remember to adjust the paths in the notebooks and in `main.py` to point to the newly generated models.
-
-## 🚀 Usage
-
-You can run this repository’s core functionality (analysis pipeline) with Python or Docker.
-
-### 1) Using Python Directly
-
-Run the main entry point with your chosen video file:
-
-```bash
-python main.py path_to_input_video.mp4 --output_video output_videos/output_result.avi
-```
-
-- By default, intermediate “stubs” (pickled detection results) are used if found, allowing you to skip repeated detection/tracking.
-- Use the `--stub_path` flag to specify a custom stub folder, or disable stubs if you want to run everything fresh.
-
-### 2) Using Docker
-
-#### Build the container if not built already:
-
-```bash
-docker build -t basketball-analysis .
-```
-
-#### Run the container, mounting your local input video folder:
-
-```bash
-docker run \
-  -v $(pwd)/videos:/app/videos \
-  -v $(pwd)/output_videos:/app/output_videos \
-  basketball-analysis \
-  python main.py videos/input_video.mp4 --output_video output_videos/output_result.avi
+VisionProject/
+├── main.py                    # Entry point dell'applicazione
+├── models/                    # Modelli YOLO pre-addestrati
+│   ├── player_detector.pt     # Modello per detection giocatori
+│   ├── ball_detector_model.pt # Modello per detection pallone
+│   └── court_keypoint_detector.pt # Modello per keypoint campo (futuro)
+├── trackers/                  # Moduli di tracking
+│   ├── __init__.py
+│   ├── playerTracker.py       # Classe PlayerTracker
+│   └── ballTracker.py         # Classe BallTracker
+├── drawers/                   # Moduli di visualizzazione
+│   ├── __init__.py
+│   ├── player_tracks_drawer.py # Classe PlayerTracksDrawer
+│   ├── ball_tracks_drawer.py  # Classe BallTracksDrawer
+│   ├── team_ball_control_drawer.py # Classe TeamBallControlDrawer
+│   └── utils.py               # Funzioni di disegno (ellissi, triangoli)
+├── team_assigner/             # Modulo assegnazione squadre
+│   ├── __init__.py
+│   └── team_assigner.py       # Classe TeamAssigner (Fashion-CLIP)
+├── utils/                     # Utility generiche
+│   ├── __init__.py
+│   ├── video_utils.py         # Lettura/scrittura video
+│   ├── stubs_utils.py         # Gestione cache (stubs)
+│   └── bbox_utils.py          # Utility per bounding box
+├── input_videos/              # Video di input
+├── output_videos/             # Video processati
+├── stubs/                     # Cache delle tracce (pickle)
+└── .venv/                     # Virtual environment (non versionato)
 ```
 
 ---
 
-## 🏰 Project Structure
+## 🔧 Componenti Principali
 
-- `main.py`  
-  – Orchestrates the entire pipeline: reading video frames, running detection/tracking, team assignment, drawing results, and saving the output video.
+### 1. **main.py** - Entry Point
+Il file principale che orchestra l'intera pipeline:
+1. Carica il video di input
+2. Inizializza i tracker (giocatori e pallone)
+3. Esegue il tracking (o carica dalla cache)
+4. Disegna le annotazioni sui frame
+5. Salva il video di output
 
-- `trackers/`  
-  – Houses `PlayerTracker` and `BallTracker`, which use detection models to generate bounding boxes and track objects across frames.
+### 2. **PlayerTracker** (`trackers/playerTracker.py`)
+Classe responsabile del rilevamento e tracking dei giocatori:
 
-- `utils/`  
-  – Contains helper functions like `bbox_utils.py` for geometric calculations, `stubs_utils.py` for reading and saving intermediate results, and `video_utils.py` for reading/saving videos.
+- **`__init__(model_path)`**: Inizializza il modello YOLO e il tracker ByteTrack
+- **`detect_frames(frames)`**: Esegue la detection su tutti i frame in batch da 20
+- **`get_object_tracks(frames, read_from_stub, stub_path)`**: 
+  - Se esiste una cache (stub), la carica per evitare ricalcoli
+  - Altrimenti esegue detection + tracking
+  - Salva i risultati in cache per usi futuri
 
-- `drawers/`  
-  – Contains classes that overlay bounding boxes, court lines, passes, etc., onto frames.
+**Output**: Lista di dizionari, uno per frame, con struttura:
+```python
+{
+    track_id: {"box": [x1, y1, x2, y2]},
+    ...
+}
+```
 
-- `ball_aquisition/`  
-  – Logic for identifying which player is in possession of the ball.
+### 3. **BallTracker** (`trackers/ballTracker.py`)
+Classe responsabile del rilevamento del pallone:
 
-- `pass_and_interception_detector/`  
-  – Identifies passing events and interceptions.
+- **`__init__(model_path)`**: Inizializza il modello YOLO per la detection del pallone
+- **`detect_frames(frames)`**: Esegue la detection su tutti i frame in batch da 20
+- **`get_object_tracks(frames, read_from_stub, stub_path)`**: 
+  - Se esiste una cache (stub), la carica per evitare ricalcoli
+  - Seleziona la detection con confidence massima per ogni frame
+  - Salva i risultati in cache per usi futuri
+- **`remuve_wrong_detections(ball_positions)`**: Filtra outlier spaziali rimuovendo rimbalzi irreali tra frame (distanza massima scalata per il gap tra frame)
+- **`interpolate_ball_positions(ball_positions)`**: Usa `pandas` per interpolare e backfillare le posizioni mancanti del pallone
 
-- `court_keypoint_detector/`  
-  – Detects lines and keypoints on the court using the specified model.
+**Output**: Lista di dizionari, uno per frame, con struttura:
+```python
+{
+    1: {"bbox": [x1, y1, x2, y2]},  # Una sola detection per frame
+}
+```
 
-- `team_assigner/`  
-  – Uses zero-shot classification (Hugging Face or similar) to assign players to teams based on jersey color.
+### 4. **PlayerTracksDrawer** (`drawers/player_tracks_drawer.py`)
+Classe per la visualizzazione delle tracce dei giocatori:
 
-- `configs/`  
-  – Holds default paths for models, stubs, and output video.
+- **`draw(video_frames, tracks, player_assignments)`**: Per ogni frame, disegna un'ellisse colorata (in base alla squadra) sotto ogni giocatore con il suo ID di tracking
+
+### 5. **BallTracksDrawer** (`drawers/ball_tracks_drawer.py`)
+Classe per la visualizzazione della posizione del pallone:
+
+- **`draw(video_frames, tracks)`**: Per ogni frame, disegna un triangolo verde sopra il pallone
+
+### 6. **TeamBallControlDrawer** (`drawers/team_ball_control_drawer.py`)
+Classe per il calcolo e visualizzazione delle statistiche di possesso palla per squadra:
+
+- **`get_team_ball_control(player_assignment, ball_aquisition)`**: Calcola quale squadra ha il controllo del pallone per ogni frame, restituendo array (1=Team1, 2=Team2, -1=nessuno)
+- **`draw(video_frames, player_assignment, ball_aquisition)`**: Disegna overlay semi-trasparente con percentuali di possesso palla per entrambe le squadre
+- **`draw_frame(frame, frame_num, team_ball_control)`**: Disegna statistiche su singolo frame con rettangolo semi-trasparente e testo percentuale
+
+**Output**: Overlay bottom-right con statistiche real-time tipo:
+```
+Team 1 Ball Control: 45.23%
+Team 2 Ball Control: 54.77%
+```
+
+### 7. **Funzioni di Disegno** (`drawers/utils.py`)
+- **`draw_ellypse(frame, bbox, color, track_id)`**: 
+  - Disegna un'ellisse ai piedi del giocatore (posizione y2 del bounding box)
+  - Aggiunge un rettangolo con l'ID del track
+  - L'ellisse ha forma proporzionale alla larghezza del bounding box
+- **`draw_triangle(frame, bbox, color)`**:
+  - Disegna un triangolo sopra il pallone (posizione y1 del bounding box)
+  - Il triangolo punta verso il basso per indicare la posizione
+
+### 7. **Utility Video** (`utils/video_utils.py`)
+- **`read_video(video_path)`**: Legge un video e restituisce una lista di frame (array numpy)
+- **`save_video(frames, output_path)`**: Salva i frame in un file AVI (codec XVID, 24 fps)
+
+### 8. **Sistema di Cache - Stubs** (`utils/stubs_utils.py`)
+Sistema di caching per evitare ricalcoli costosi:
+- **`save_stubs(stub_path, object)`**: Salva un oggetto Python in formato pickle
+- **`read_stubs(read_from_stub, stub_path)`**: Carica un oggetto dalla cache se esiste
+
+### 9. **Utility Bounding Box** (`utils/bbox_utils.py`)
+Utility per operazioni su bounding box:
+
+- **`get_center_of_bbox(bbox)`**: Calcola il centro geometrico di un bbox (x1,y1,x2,y2)
+- **`get_bbox_width(bbox)`**: Calcola la larghezza di un bbox
+- **`measure_distance(point1, point2)`**: Calcola distanza euclidea tra due punti (usato per ball acquisition)
+
+### 10. **TeamAssigner** (`team_assigner/team_assigner.py`)
+Classe per l'assegnazione dei giocatori alle squadre in base al colore della maglia:
+
+- **`__init__(team_1_class_name, team_2_class_name)`**: Inizializza i nomi dei colori delle squadre (default: "white shirt", "dark blue shirt")
+- **`load_model()`**: Carica il modello Fashion-CLIP per il riconoscimento dei colori
+- **`get_player_color(frame, bbox)`**: Classifica il colore della maglia di un giocatore usando CLIP
+- **`get_player_team(frame, player_bbox, player_id)`**: Assegna un giocatore a una squadra (1 o 2) in base al colore
+- **`get_player_teams_across_frames(video_frames, player_tracks, read_from_stub, stub_path)`**: Assegna le squadre a tutti i giocatori in tutti i frame
+
+> ⚠️ **Limitazione attuale**: Il sistema riconosce attualmente solo **due colori hardcoded**: `"white shirt"` (squadra 1) e `"dark blue shirt"` (squadra 2). Per supportare altri colori, è necessario modificare i parametri `team_1_class_name` e `team_2_class_name` nel costruttore di `TeamAssigner` in `main.py`.
+
+### 11. **BallAquisitionDetector** (`ball_acquisition/ball_aquisition_detector.py`)
+Classe per il rilevamento del possesso palla da parte dei giocatori:
+
+- **`__init__()`**: Inizializza soglie:
+  - `possession_threshold` (50px): Distanza massima per possession senza alta containment
+  - `min_frames` (11): Frame consecutivi richiesti per confermare il possesso
+  - `containment_threshold` (0.8): Ratio di contenimento del pallone nel bbox del giocatore
+  
+- **`get_key_basketball_player_assignment_points(player_bbox, ball_center)`**: Genera punti chiave attorno al bbox del giocatore (corners, edges, center) per misure di distanza accurate
+  
+- **`calculate_ball_containment_ratio(player_bbox, ball_bbox)`**: Calcola la percentuale di pallone contenuta nel bbox del giocatore (area intersezione / area pallone)
+  
+- **`find_minimum_distance_to_ball(ball_center, player_bbox)`**: Trova la minima distanza dal centro pallone ai punti chiave del giocatore
+  
+- **`find_best_candidate_for_possession(ball_center, player_tracks_frame, ball_bbox)`**: 
+  - Priorità 1: Giocatori con high containment (>80%)
+  - Priorità 2: Giocatori entro soglia di distanza (<50px)
+  - Restituisce player_id o -1
+  
+- **`detect_ball_possession(player_tracks, ball_tracks)`**: Rileva possesso per ogni frame, richiedendo 11 frame consecutivi per confermare
+
+**Logica di rilevamento**:
+1. Per ogni frame, calcola distanza e containment verso ogni giocatore
+2. Prioritizza giocatori con alta containment (ball quasi dentro il bbox)
+3. Se nessuno ha alta containment, seleziona il più vicino entro soglia
+4. Conferma il possesso solo se persistente per min_frames consecutivi
+
+### 12. **PassAndInterceptionDetector** (`pass_and_interception_detector/pass_and_interception_detector.py`)
+Classe per il rilevamento di passaggi e intercetti:
+
+- **`detect_passes(ball_acquisition, player_assignment)`**: Rileva passaggi riusciti tra giocatori della stessa squadra
+  - Identifica cambi di possesso tra frame
+  - Verifica che il possesso passi tra giocatori della stessa squadra
+  - Restituisce lista con 1=passaggio Team1, 2=passaggio Team2, -1=nessuno
+
+- **`detect_interceptions(ball_acquisition, player_assignment)`**: Rileva intercetti da parte delle squadre avversarie
+  - Identifica cambi di possesso tra frame
+  - Verifica che il possesso cambi tra squadre diverse
+  - Restituisce lista con 1=intercetto Team1, 2=intercetto Team2, -1=nessuno
+
+**Output**: Liste parallele a `ball_acquisition` per ogni frame
+
+### 13. **PassInterceptionDrawer** (`drawers/pass_and_iterceptions_drawer.py`)
+Classe per la visualizzazione di passaggi e intercetti:
+
+- **`get_stats(passes, interceptions)`**: Conta totali di passaggi e intercetti per squadra fino a frame corrente
+  - Restituisce tupla (team1_passes, team2_passes, team1_interceptions, team2_interceptions)
+
+- **`draw(video_frames, passes, interceptions)`**: Disegna statistiche cumulative su tutti i frame
+
+- **`draw_frame(frame, frame_num, passes, interceptions)`**: Disegna overlay semi-trasparente con statistiche su singolo frame
+  - Rettangolo bianco semi-trasparente in basso a sinistra
+  - Visualizza passaggi e intercetti cumulativi per entrambe le squadre
+
+**Output**: Overlay tipo:
+```
+Team 1 - Passes: 12 Interceptions: 3
+Team 2 - Passes: 15 Interceptions: 5
+```
+
+### 14. **CourtKeypointDetector** (`court_keypoints_detector/court_keypoints_detector.py`)
+Classe per il rilevamento dei keypoint del campo:
+
+- **`__init__(model_path)`**: Inizializza il modello YOLO per la detection dei keypoint del campo
+- **`get_court_keypoints(frames, read_from_stub, stub_path)`**: 
+  - Rileva i keypoint del campo (linee, angoli, etc.) su tutti i frame in batch da 20
+  - Se esiste una cache (stub), la carica per evitare ricalcoli
+  - Utilizza confidence threshold di 0.5 per filtrare detection deboli
+  - Salva i risultati in cache per usi futuri
+
+**Output**: Lista di keypoint per frame, formato PyTorch tensor con coordinate (x, y)
+
+### 15. **CourtKeypointDrawer** (`drawers/court_keypoins_drawer.py`)
+Classe per la visualizzazione dei keypoint del campo:
+
+- **`__init__()`**: Inizializza con colore rosso (`#ff2c2c`) per i keypoint
+- **`draw(frames, court_keypoints)`**: Disegna keypoint e relative label su tutti i frame
+  - Utilizza `VertexAnnotator` per disegnare i punti (raggio 8px)
+  - Utilizza `VertexLabelAnnotator` per le etichette numeriche
+  - Converte tensor PyTorch in numpy array per compatibilità
+
+**Output**: Frame con keypoint rossi numerati per identificare i punti del campo
 
 ---
 
-## 🔮 Future Work
+## 🛠️ Tecnologie Utilizzate
 
-As we continue to enhance the capabilities of this basketball video analysis tool, several areas for future development have been identified:
-
-1. **Integrating a Pose Model for Advanced Rule Detection**  
-   Incorporating a pose detection model could enable the identification of complex basketball rules such as double dribbling and traveling. By analyzing player movements and positions, the system could automatically flag these infractions, adding another layer of analysis to the video footage.
-
-These enhancements will further refine the analysis capabilities and provide users with more comprehensive insights into basketball games.
-
-## 🤝 Contributing
-
-Contributions are welcome!
-
-1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Submit a pull request with a clear explanation of your changes.
+| Tecnologia | Versione | Utilizzo |
+|------------|----------|----------|
+| **Python** | 3.12 | Linguaggio principale |
+| **Ultralytics YOLO** | 8.4.6 | Object detection |
+| **Supervision** | 0.27.0 | ByteTrack e utility per detection |
+| **OpenCV** | 4.13.0 | Elaborazione video e disegno |
+| **PyTorch** | 2.9.1 | Backend per YOLO |
+| **Transformers** | latest | Libreria Hugging Face per CLIP |
+| **Fashion-CLIP** | latest | Modello per riconoscimento colori maglie |
 
 ---
 
-## 🐜 License
-
-This project is licensed under the MIT License.  
-See `LICENSE` for details.
 
 ---
 
-## 💬 Questions or Feedback?
+## 🚀 Installazione
 
-Feel free to open an issue or reach out via email if you have questions about the project, suggestions for improvements, or just want to say hi!
+### 1. Clonare il repository
+```bash
+git clone <url-repository>
+cd VisionProject
+```
 
-Enjoy analyzing basketball footage with automatic detection and tracking!
+### 2. Creare e attivare il virtual environment
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### 3. Installare le dipendenze
+```bash
+pip install ultralytics supervision opencv-python transformers pillow
+```
+
+### 4. Posizionare i modelli
+Inserire i file `.pt` dei modelli nella cartella `models/`
+
+---
+
+## ▶️ Esecuzione
+
+```bash
+python main.py
+```
+
+Il programma:
+1. Legge `input_videos/video_1.mp4`
+2. Esegue il tracking dei giocatori (o usa la cache da `stubs/player_tracks.stub.pkl`)
+3. Esegue il tracking del pallone (o usa la cache da `stubs/ball_tracks.stub.pkl`)
+4. Assegna ogni giocatore a una squadra in base al colore della maglia (o usa la cache da `stubs/player_assignement_stub.pkl`)
+5. Genera `output_videos/output_video.avi` con le annotazioni (ellissi colorate per squadra, triangolo per il pallone)
+
+### Troubleshooting
+
+**Out of Memory**: Attivare la riduzione di risoluzione in `main.py`:
+```python
+video_frames = [cv2.resize(frame, (frame.shape[1]//4, frame.shape[0]//4)) for frame in video_frames]
+```
+
+**Stubs Corrupted**: Eliminare manualmente:
+```bash
+rm stubs/*.pkl
+```
+
+---
+
+## 📊 Pipeline di Elaborazione
+
+```
+┌─────────────────┐
+│  Video Input    │
+│  (MP4)          │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  read_video()   │  Estrae tutti i frame
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌────────┐ ┌────────┐
+│ Player │ │  Ball  │
+│ Tracker│ │ Tracker│
+│ (YOLO  │ │ (YOLO  │
+│  +     │ │  +     │
+│ByteTrack│ │MaxConf)│
+└───┬────┘ └───┬────┘
+    │          │
+    ▼          ▼
+┌────────┐ ┌────────┐
+│ Player │ │  Ball  │
+│ Tracks │ │ Tracks │
+│ Drawer │ │ Drawer │
+│(ellissi│ │(triangoli)│
+│  + ID) │ │        │
+└───┬────┘ └───┬────┘
+    │          │
+    └────┬─────┘
+         │
+         ▼
+┌─────────────────┐
+│  save_video()   │  Output AVI
+│  (XVID, 24fps)  │
+└─────────────────┘
+```
+
+---
+
+## 🔮 Sviluppi Futuri
+
+Il progetto prevede l'implementazione di:
+- **Riconoscimento automatico colori squadre**: Attualmente il sistema riconosce solo "white shirt" e "dark blue shirt". Si prevede di implementare un rilevamento automatico dei colori dominanti delle squadre
+- **Visualizzazione ball acquisition**: Integrare il `BallAquisitionDetector` nel pipeline di disegno per visualizzare il possesso palla
+- **Court Detection**: Rilevamento dei keypoint del campo (`court_keypoint_detector.pt`)
+- **Analisi tattica**: Posizionamento dei giocatori rispetto al campo
+- **Statistiche**: Velocità, distanze percorse, heat map
+- **Interpolazione pallone avanzata**: Affinare i filtri e l'interpolazione per casi limite
+
+---
+
+## 📁 File Ignorati (.gitignore)
+
+```
+models/*.pt          # Modelli troppo grandi
+input_videos/        # Video di input
+runs/                # Output YOLO
+stubs/               # Cache delle tracce
+__pycache__/         # Cache Python
+.venv/               # Virtual environment
+```
+
+---
+
+## 👤 Autore
+
+Progetto sviluppato per il corso di **Computer Vision and Cognitive Systems**
