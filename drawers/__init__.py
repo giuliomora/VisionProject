@@ -5,5 +5,4 @@ from .team_ball_control_drawer import TeamBallControlDrawer
 from .frame_number_drawer import FrameNumberDrawer
 from .pass_and_interceptions_drawer import PassInterceptionDrawer
 from .tactical_view_drawer import TacticalViewDrawer
-from .hoop_drawer import HoopDrawer
-from .shooting_drawer import ShootingDrawer
+from .speed_and_distance_drawer import SpeedAndDistanceDrawer
