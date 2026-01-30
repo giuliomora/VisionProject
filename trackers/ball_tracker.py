@@ -8,7 +8,7 @@ from utils import read_stub, save_stub
 
 
 class BallTracker:
-    """Gestisce rilevamento e tracciamento della palla usando YOLO."""
+    """Gestisce rilevamento e tracciamento della palla e dell'hoop usando YOLO."""
     def __init__(self, model_path):
         self.model = YOLO(model_path) 
 
@@ -39,7 +39,7 @@ class BallTracker:
             detection_supervision = sv.Detections.from_ultralytics(detection)
 
             tracks.append({})
-            chosen_bbox =None
+            chosen_bbox = None
             max_confidence = 0
             
             for frame_detection in detection_supervision:
@@ -48,18 +48,51 @@ class BallTracker:
                 confidence = frame_detection[2]
                 
                 if cls_id == cls_names_inv['Ball']:
-                    if max_confidence<confidence:
+                    if max_confidence < confidence:
                         chosen_bbox = bbox
                         max_confidence = confidence
 
             if chosen_bbox is not None:
-                tracks[frame_num][1] = {"bbox":chosen_bbox}
+                tracks[frame_num][1] = {"bbox": chosen_bbox}
 
-        save_stub(stub_path,tracks)
+        save_stub(stub_path, tracks)
         
         return tracks
 
-    def remove_wrong_detections(self,ball_positions):
+    def get_hoop_tracks(self, frames, read_from_stub=False, stub_path=None):
+        """Ottiene risultati di tracciamento hoop con cache opzionale."""
+        tracks = read_stub(read_from_stub, stub_path)
+        if tracks is not None:
+            if len(tracks) == len(frames):
+                return tracks
+
+        detections = self.detect_frames(frames)
+
+        tracks = []
+
+        for frame_num, detection in enumerate(detections):
+            cls_names = detection.names
+            cls_names_inv = {v: k for k, v in cls_names.items()}
+
+            detection_supervision = sv.Detections.from_ultralytics(detection)
+
+            tracks.append({})
+            hoop_count = 0
+            
+            for frame_detection in detection_supervision:
+                bbox = frame_detection[0].tolist()
+                cls_id = frame_detection[3]
+                confidence = frame_detection[2]
+                
+                if cls_id == cls_names_inv.get('Hoop'):
+                    hoop_count += 1
+                    tracks[frame_num][hoop_count] = {"bbox": bbox, "confidence": confidence}
+
+        save_stub(stub_path, tracks)
+        
+        return tracks
+
+    def remove_wrong_detections(self, ball_positions):
         """Filtra rilevamenti errati in base alla distanza massima consentita."""
         
         maximum_allowed_distance = 25
@@ -86,13 +119,13 @@ class BallTracker:
 
         return ball_positions
 
-    def interpolate_ball_positions(self,ball_positions):
+    def interpolate_ball_positions(self, ball_positions):
         """Interpola posizioni mancanti della palla per un tracciamento fluido."""
-        ball_positions = [x.get(1,{}).get('bbox',[]) for x in ball_positions]
-        df_ball_positions = pd.DataFrame(ball_positions,columns=['x1','y1','x2','y2'])
+        ball_positions = [x.get(1, {}).get('bbox', []) for x in ball_positions]
+        df_ball_positions = pd.DataFrame(ball_positions, columns=['x1', 'y1', 'x2', 'y2'])
 
         df_ball_positions = df_ball_positions.interpolate()
         df_ball_positions = df_ball_positions.bfill()
 
-        ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+        ball_positions = [{1: {"bbox": x}} for x in df_ball_positions.to_numpy().tolist()]
         return ball_positions

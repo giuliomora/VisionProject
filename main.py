@@ -7,6 +7,7 @@ from court_keypoint_detector import CourtKeypointDetector
 from ball_aquisition import BallAquisitionDetector
 from pass_and_interception_detector import PassAndInterceptionDetector
 from tactical_view_converter import TacticalViewConverter
+from shooting_detector import ShootingDetector
 from drawers import (
     PlayerTracksDrawer, 
     BallTracksDrawer,
@@ -14,7 +15,9 @@ from drawers import (
     TeamBallControlDrawer,
     FrameNumberDrawer,
     PassInterceptionDrawer,
-    TacticalViewDrawer
+    TacticalViewDrawer,
+    HoopDrawer,
+    ShootingDrawer
 )
 from configs import(
     STUBS_DEFAULT_PATH,
@@ -26,7 +29,7 @@ from configs import(
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Basketball Video Analysis')
-    parser.add_argument('--input_video', type=str, default='input_videos/video_1.mp4',
+    parser.add_argument('--input_video', type=str, default='input_videos/video_3.mp4',
                         help='Path to input video file')
     parser.add_argument('--output_video', type=str, default=OUTPUT_VIDEO_PATH, 
                         help='Path to output video file')
@@ -57,6 +60,11 @@ def main():
                                                  read_from_stub=True,
                                                  stub_path=os.path.join(args.stub_path, 'ball_track_stubs.pkl')
                                                 )
+    
+    # Track Hoop (NUOVO)
+    hoop_tracks = ball_tracker.get_hoop_tracks(video_frames,
+                                                read_from_stub=args.stub_path,
+                                                stub_path=os.path.join(args.stub_path, "hoop_detections.pkl"))
     ## Run KeyPoint Extractor
     court_keypoints_per_frame = court_keypoint_detector.get_court_keypoints(video_frames,
                                                                     read_from_stub=True,
@@ -94,7 +102,28 @@ def main():
     court_keypoints_per_frame = tactical_view_converter.validate_keypoints(court_keypoints_per_frame)
     tactical_player_positions = tactical_view_converter.transform_players_to_tactical_view(court_keypoints_per_frame,player_tracks)
 
-  
+      # Detect Shots
+    shooting_detector = ShootingDetector(
+        hoop_proximity_threshold=200,
+        made_shot_threshold=60,
+        min_frames_between_shots=30
+    )
+    shots = shooting_detector.detect_shots(
+        ball_tracks,
+        hoop_tracks,
+        player_tracks,
+        player_assignment,
+        ball_aquisition
+    )
+        # Export shooting stats to TSV
+    shooting_detector.export_to_tsv(os.path.join(args.stub_path, 'team_shooting_stats.tsv'))
+    shooting_detector.export_shots_to_tsv(os.path.join(args.stub_path, 'all_shots.tsv'))
+    
+    print(f"\nShooting Stats:")
+    for team_id, stats in shooting_detector.get_team_stats().items():
+        print(f"  Team {team_id}: {stats['made']}/{stats['attempts']} "
+              f"({stats['made']/stats['attempts']*100:.1f}% FG)" if stats['attempts'] > 0 
+              else f"  Team {team_id}: No shots")
     # Draw output   
     # Initialize Drawers
     player_tracks_drawer = PlayerTracksDrawer()
@@ -104,6 +133,8 @@ def main():
     frame_number_drawer = FrameNumberDrawer()
     pass_and_interceptions_drawer = PassInterceptionDrawer()
     tactical_view_drawer = TacticalViewDrawer()
+    hoop_drawer = HoopDrawer()  # Nuovo drawer
+    shooting_drawer = ShootingDrawer()  # Nuovo drawer
 
     ## Draw object Tracks
     output_video_frames = player_tracks_drawer.draw(video_frames, 
@@ -138,6 +169,14 @@ def main():
                                                     player_assignment,
                                                     ball_aquisition,
                                                     )
+    
+    # Draw Hoops
+    output_video_frames = hoop_drawer.draw(output_video_frames,
+                                           hoop_tracks)
+    
+    # Draw Shots
+    output_video_frames = shooting_drawer.draw(output_video_frames, shots)
+
 
     # Save video
     save_video(output_video_frames, args.output_video)

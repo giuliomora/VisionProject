@@ -1,3 +1,4 @@
+# filepath: /Users/marcovenanzi/Desktop/VisionProject/README.md
 # VisionProject
 
 **Progetto di Computer Vision and Cognitive Systems**
@@ -12,8 +13,10 @@ VisionProject è un'applicazione di computer vision che analizza video di partit
 - **Rilevare** i giocatori e il pallone presenti in ogni frame
 - **Tracciare** i movimenti dei giocatori nel tempo (tracking multi-oggetto con ByteTrack)
 - **Tracciare** la posizione del pallone (detection con selezione per confidence)
+- **Rilevare i canestri** (hoop detection) per l'analisi dei tiri
 - **Assegnare i giocatori alle squadre** in base al colore della maglia (utilizzando Fashion-CLIP)
-- **Visualizzare** le tracce con annotazioni grafiche (ellissi colorate per squadra, triangoli per il pallone)
+- **Rilevare i tiri** e determinare se sono andati a segno (shooting detection)
+- **Visualizzare** le tracce con annotazioni grafiche (ellissi colorate per squadra, triangoli per il pallone, banner per i tiri)
 
 Il sistema utilizza modelli YOLO pre-addestrati per la detection, l'algoritmo ByteTrack per il tracking persistente degli oggetti tra i frame, e il modello Fashion-CLIP per il riconoscimento dei colori delle maglie.
 
@@ -26,16 +29,18 @@ VisionProject/
 ├── main.py                    # Entry point dell'applicazione
 ├── models/                    # Modelli YOLO pre-addestrati
 │   ├── player_detector.pt     # Modello per detection giocatori
-│   ├── ball_detector_model.pt # Modello per detection pallone
+│   ├── ball_detector_model.pt # Modello per detection pallone e canestri
 │   └── court_keypoint_detector.pt # Modello per keypoint campo
 ├── trackers/                  # Moduli di tracking
 │   ├── __init__.py
 │   ├── playerTracker.py       # Classe PlayerTracker
-│   └── ballTracker.py         # Classe BallTracker
+│   └── ballTracker.py         # Classe BallTracker (include HoopTracker)
 ├── drawers/                   # Moduli di visualizzazione
 │   ├── __init__.py
 │   ├── player_tracks_drawer.py # Classe PlayerTracksDrawer
 │   ├── ball_tracks_drawer.py  # Classe BallTracksDrawer
+│   ├── hoop_drawer.py         # Classe HoopDrawer
+│   ├── shooting_drawer.py     # Classe ShootingDrawer
 │   ├── team_ball_control_drawer.py # Classe TeamBallControlDrawer
 │   ├── pass_and_interceptions_drawer.py # Classe PassInterceptionDrawer
 │   ├── court_keypoins_drawer.py # Classe CourtKeypointDrawer
@@ -52,6 +57,9 @@ VisionProject/
 ├── pass_and_interception_detector/ # Modulo rilevamento passaggi
 │   ├── __init__.py
 │   └── pass_and_interception_detector.py # Classe PassAndInterceptionDetector
+├── shooting_detector/         # Modulo rilevamento tiri
+│   ├── __init__.py
+│   └── shooting_detector.py   # Classe ShootingDetector
 ├── court_keypoints_detector/  # Modulo rilevamento keypoint campo
 │   ├── __init__.py
 │   └── court_keypoints_detector.py # Classe CourtKeypointDetector
@@ -80,10 +88,12 @@ VisionProject/
 ### 1. **main.py** - Entry Point
 Il file principale che orchestra l'intera pipeline:
 1. Carica il video di input
-2. Inizializza i tracker (giocatori e pallone)
+2. Inizializza i tracker (giocatori, pallone e canestri)
 3. Esegue il tracking (o carica dalla cache)
-4. Disegna le annotazioni sui frame
-5. Salva il video di output
+4. Rileva i tiri e determina se sono andati a segno
+5. Disegna le annotazioni sui frame
+6. Esporta le statistiche in formato TSV
+7. Salva il video di output
 
 ### 2. **PlayerTracker** (`trackers/playerTracker.py`)
 Classe responsabile del rilevamento e tracking dei giocatori:
@@ -104,35 +114,115 @@ Classe responsabile del rilevamento e tracking dei giocatori:
 ```
 
 ### 3. **BallTracker** (`trackers/ballTracker.py`)
-Classe responsabile del rilevamento del pallone:
+Classe responsabile del rilevamento del pallone e dei canestri (hoop):
 
-- **`__init__(model_path)`**: Inizializza il modello YOLO per la detection del pallone
+- **`__init__(model_path)`**: Inizializza il modello YOLO per la detection del pallone e dei canestri
 - **`detect_frames(frames)`**: Esegue la detection su tutti i frame in batch da 20
 - **`get_object_tracks(frames, read_from_stub, stub_path)`**: 
   - Se esiste una cache (stub), la carica per evitare ricalcoli
   - Seleziona la detection con confidence massima per ogni frame
   - Salva i risultati in cache per usi futuri
+- **`get_hoop_tracks(frames, read_from_stub, stub_path)`**: 
+  - Rileva e traccia i canestri (hoop) in tutti i frame
+  - Supporta cache per evitare ricalcoli
+  - Restituisce le posizioni dei canestri per ogni frame
 - **`remuve_wrong_detections(ball_positions)`**: Filtra outlier spaziali rimuovendo rimbalzi irreali tra frame (distanza massima scalata per il gap tra frame)
 - **`interpolate_ball_positions(ball_positions)`**: Usa `pandas` per interpolare e backfillare le posizioni mancanti del pallone
 
-**Output**: Lista di dizionari, uno per frame, con struttura:
+**Output Ball Tracks**: Lista di dizionari, uno per frame:
 ```python
 {
     1: {"bbox": [x1, y1, x2, y2]},  # Una sola detection per frame
 }
 ```
 
-### 4. **PlayerTracksDrawer** (`drawers/player_tracks_drawer.py`)
+**Output Hoop Tracks**: Lista di dizionari, uno per frame:
+```python
+{
+    1: {"bbox": [x1, y1, x2, y2], "confidence": 0.95},  # Canestro 1
+    2: {"bbox": [x1, y1, x2, y2], "confidence": 0.93},  # Canestro 2 (se presente)
+}
+```
+
+### 4. **ShootingDetector** (`shooting_detector/shooting_detector.py`)
+Classe per il rilevamento dei tiri e la determinazione se sono andati a segno:
+
+- **`__init__(hoop_proximity_threshold, made_shot_threshold, min_frames_between_shots, debug)`**: Inizializza il detector con soglie configurabili:
+  - `hoop_proximity_threshold` (300px): Distanza massima palla-canestro per considerare un tiro
+  - `made_shot_threshold` (100px): Distanza per considerare un canestro fatto
+  - `min_frames_between_shots` (20): Frame minimi tra due tiri consecutivi
+  - `debug` (True): Abilita logging dettagliato
+
+- **`detect_shots(ball_tracks, hoop_tracks, player_tracks, player_assignment, ball_acquisition)`**: Rileva tutti i tiri nel video
+  - Analizza la prossimità della palla al canestro
+  - Verifica se la palla si sta avvicinando (traiettoria)
+  - Determina se il tiro è andato a segno (palla passa attraverso e scende)
+  - Identifica il tiratore cercando l'ultimo giocatore con possesso palla
+
+- **`get_team_stats()`**: Calcola statistiche aggregate per squadra
+  - Restituisce: `{team_id: {'attempts': int, 'made': int, 'missed': int}}`
+
+- **`export_to_tsv(output_path)`**: Esporta statistiche squadra in formato TSV
+- **`export_shots_to_tsv(output_path)`**: Esporta tutti i singoli tiri in formato TSV
+
+**Output `shots`**: Lista di oggetti `Shot` (dataclass):
+```python
+@dataclass
+class Shot:
+    frame_start: int          # Frame di inizio tiro
+    frame_end: int            # Frame di fine tiro
+    team_id: int              # Squadra (1 o 2)
+    player_id: int            # ID giocatore tiratore
+    made: bool                # True se canestro segnato
+    position: Tuple[float, float]  # Posizione (x, y) del tiratore
+    hoop_id: int              # ID del canestro target
+```
+
+**Logica di rilevamento tiri**:
+1. Monitora la distanza palla-canestro per ogni frame
+2. Rileva potenziale tiro quando palla è vicina al canestro E si sta avvicinando
+3. Determina esito verificando se la palla passa vicino al centro del canestro e poi scende
+4. Trova il tiratore cercando indietro nel tempo l'ultimo giocatore con possesso palla
+
+### 5. **HoopDrawer** (`drawers/hoop_drawer.py`)
+Classe per la visualizzazione dei canestri rilevati:
+
+- **`__init__(color, thickness)`**: Inizializza con colore (default arancione) e spessore linea
+- **`draw(frames, hoop_tracks)`**: Disegna i canestri su tutti i frame
+  - Rettangolo colorato attorno al canestro
+  - Etichetta "Hoop 1", "Hoop 2", etc.
+  - Punto verde al centro del canestro
+
+**Output**: Frame con annotazioni canestri
+
+### 6. **ShootingDrawer** (`drawers/shooting_drawer.py`)
+Classe per la visualizzazione degli eventi di tiro:
+
+- **`__init__(made_color, missed_color, display_frames)`**: Inizializza con:
+  - `made_color` (verde): Colore per canestri segnati
+  - `missed_color` (rosso): Colore per canestri sbagliati
+  - `display_frames` (60): Durata visualizzazione evento
+
+- **`draw(frames, shots)`**: Disegna gli eventi di tiro su tutti i frame
+  - Banner colorato in alto (verde=segnato, rosso=sbagliato)
+  - Testo con squadra e giocatore
+  - Cerchio pulsante nella posizione del tiratore
+  - Freccia indicante direzione del tiro
+  - Fade out graduale dopo N frame
+
+**Output**: Frame con overlay eventi tiro
+
+### 7. **PlayerTracksDrawer** (`drawers/player_tracks_drawer.py`)
 Classe per la visualizzazione delle tracce dei giocatori:
 
 - **`draw(video_frames, tracks, player_assignments)`**: Per ogni frame, disegna un'ellisse colorata (in base alla squadra) sotto ogni giocatore con il suo ID di tracking
 
-### 5. **BallTracksDrawer** (`drawers/ball_tracks_drawer.py`)
+### 8. **BallTracksDrawer** (`drawers/ball_tracks_drawer.py`)
 Classe per la visualizzazione della posizione del pallone:
 
 - **`draw(video_frames, tracks)`**: Per ogni frame, disegna un triangolo verde sopra il pallone
 
-### 6. **TeamBallControlDrawer** (`drawers/team_ball_control_drawer.py`)
+### 9. **TeamBallControlDrawer** (`drawers/team_ball_control_drawer.py`)
 Classe per il calcolo e visualizzazione delle statistiche di possesso palla per squadra:
 
 - **`get_team_ball_control(player_assignment, ball_aquisition)`**: Calcola quale squadra ha il controllo del pallone per ogni frame, restituendo array (1=Team1, 2=Team2, -1=nessuno)
@@ -145,7 +235,7 @@ Team 1 Ball Control: 45.23%
 Team 2 Ball Control: 54.77%
 ```
 
-### 7. **Funzioni di Disegno** (`drawers/utils.py`)
+### 10. **Funzioni di Disegno** (`drawers/utils.py`)
 - **`draw_ellypse(frame, bbox, color, track_id)`**: 
   - Disegna un'ellisse ai piedi del giocatore (posizione y2 del bounding box)
   - Aggiunge un rettangolo con l'ID del track
@@ -154,23 +244,23 @@ Team 2 Ball Control: 54.77%
   - Disegna un triangolo sopra il pallone (posizione y1 del bounding box)
   - Il triangolo punta verso il basso per indicare la posizione
 
-### 7. **Utility Video** (`utils/video_utils.py`)
+### 11. **Utility Video** (`utils/video_utils.py`)
 - **`read_video(video_path)`**: Legge un video e restituisce una lista di frame (array numpy)
 - **`save_video(frames, output_path)`**: Salva i frame in un file AVI (codec XVID, 24 fps)
 
-### 8. **Sistema di Cache - Stubs** (`utils/stubs_utils.py`)
+### 12. **Sistema di Cache - Stubs** (`utils/stubs_utils.py`)
 Sistema di caching per evitare ricalcoli costosi:
 - **`save_stubs(stub_path, object)`**: Salva un oggetto Python in formato pickle
 - **`read_stubs(read_from_stub, stub_path)`**: Carica un oggetto dalla cache se esiste
 
-### 9. **Utility Bounding Box** (`utils/bbox_utils.py`)
+### 13. **Utility Bounding Box** (`utils/bbox_utils.py`)
 Utility per operazioni su bounding box:
 
 - **`get_center_of_bbox(bbox)`**: Calcola il centro geometrico di un bbox (x1,y1,x2,y2)
 - **`get_bbox_width(bbox)`**: Calcola la larghezza di un bbox
-- **`measure_distance(point1, point2)`**: Calcola distanza euclidea tra due punti (usato per ball acquisition)
+- **`measure_distance(point1, point2)`**: Calcola distanza euclidea tra due punti (usato per ball acquisition e shooting detection)
 
-### 10. **TeamAssigner** (`team_assigner/team_assigner.py`)
+### 14. **TeamAssigner** (`team_assigner/team_assigner.py`)
 Classe per l'assegnazione dei giocatori alle squadre in base al colore della maglia:
 
 - **`__init__(team_1_class_name, team_2_class_name)`**: Inizializza i nomi dei colori delle squadre (default: "white shirt", "dark blue shirt")
@@ -181,7 +271,7 @@ Classe per l'assegnazione dei giocatori alle squadre in base al colore della mag
 
 > ⚠️ **Limitazione attuale**: Il sistema riconosce attualmente solo **due colori hardcoded**: `"white shirt"` (squadra 1) e `"dark blue shirt"` (squadra 2). Per supportare altri colori, è necessario modificare i parametri `team_1_class_name` e `team_2_class_name` nel costruttore di `TeamAssigner` in `main.py`.
 
-### 11. **BallAquisitionDetector** (`ball_acquisition/ball_aquisition_detector.py`)
+### 15. **BallAquisitionDetector** (`ball_acquisition/ball_aquisition_detector.py`)
 Classe per il rilevamento del possesso palla da parte dei giocatori:
 
 - **`__init__()`**: Inizializza soglie:
@@ -208,7 +298,7 @@ Classe per il rilevamento del possesso palla da parte dei giocatori:
 3. Se nessuno ha alta containment, seleziona il più vicino entro soglia
 4. Conferma il possesso solo se persistente per min_frames consecutivi
 
-### 12. **PassAndInterceptionDetector** (`pass_and_interception_detector/pass_and_interception_detector.py`)
+### 16. **PassAndInterceptionDetector** (`pass_and_interception_detector/pass_and_interception_detector.py`)
 Classe per il rilevamento di passaggi e intercetti:
 
 - **`detect_passes(ball_acquisition, player_assignment)`**: Rileva passaggi riusciti tra giocatori della stessa squadra
@@ -223,7 +313,7 @@ Classe per il rilevamento di passaggi e intercetti:
 
 **Output**: Liste parallele a `ball_acquisition` per ogni frame
 
-### 13. **PassInterceptionDrawer** (`drawers/pass_and_interceptions_drawer.py`)
+### 17. **PassInterceptionDrawer** (`drawers/pass_and_interceptions_drawer.py`)
 Classe per la visualizzazione di passaggi e intercetti:
 
 - **`get_stats(passes, interceptions)`**: Conta totali di passaggi e intercetti per squadra fino a frame corrente
@@ -241,7 +331,7 @@ Team 1 - Passes: 12 Interceptions: 3
 Team 2 - Passes: 15 Interceptions: 5
 ```
 
-### 14. **FrameNumberDrawer** (`drawers/frame_number_drawer.py`)
+### 18. **FrameNumberDrawer** (`drawers/frame_number_drawer.py`)
 Classe per la visualizzazione del numero del frame corrente:
 
 - **`draw(video_frames)`**: Disegna il numero del frame in alto a sinistra
@@ -251,7 +341,7 @@ Classe per la visualizzazione del numero del frame corrente:
 
 **Output**: Numero del frame progressivo in ogni frame
 
-### 15. **CourtKeypointDetector** (`court_keypoints_detector/court_keypoints_detector.py`)
+### 19. **CourtKeypointDetector** (`court_keypoints_detector/court_keypoints_detector.py`)
 Classe per il rilevamento dei keypoint del campo:
 
 - **`__init__(model_path)`**: Inizializza il modello YOLO per la detection dei keypoint del campo
@@ -263,7 +353,7 @@ Classe per il rilevamento dei keypoint del campo:
 
 **Output**: Lista di keypoint per frame, formato PyTorch tensor con coordinate (x, y)
 
-### 16. **CourtKeypointDrawer** (`drawers/court_keypoins_drawer.py`)
+### 20. **CourtKeypointDrawer** (`drawers/court_keypoins_drawer.py`)
 Classe per la visualizzazione dei keypoint del campo:
 
 - **`__init__()`**: Inizializza con colore rosso (`#ff2c2c`) per i keypoint
@@ -274,7 +364,7 @@ Classe per la visualizzazione dei keypoint del campo:
 
 **Output**: Frame con keypoint rossi numerati per identificare i punti del campo
 
-### 17. **TacticalViewConverter** (`tactical_view_converter/tactical_view_converter.py`)
+### 21. **TacticalViewConverter** (`tactical_view_converter/tactical_view_converter.py`)
 Classe per la conversione delle posizioni dal sistema di coordinate video a quello tattico del campo:
 
 - **`__init__(court_image_path)`**: Inizializza il converter con:
@@ -294,7 +384,7 @@ Classe per la conversione delle posizioni dal sistema di coordinate video a quel
 
 **Output**: Lista di frame con posizioni tattiche (x, y) per ogni giocatore
 
-### 18. **TacticalViewDrawer** (`drawers/tactical_view_drawer.py`)
+### 22. **TacticalViewDrawer** (`drawers/tactical_view_drawer.py`)
 Classe per la visualizzazione della vista tattica del campo con i giocatori:
 
 - **`__init__(team_1_color, team_2_color)`**: Inizializza i colori per le squadre
@@ -316,6 +406,29 @@ Classe per la visualizzazione della vista tattica del campo con i giocatori:
 
 **Output**: Frame con overlay tattico che mostra la disposizione dei giocatori sul campo in tempo reale
 
+---
+
+## 📊 Output Files
+
+### TSV Files (Statistiche Tiri)
+Il sistema genera file TSV con le statistiche di tiro:
+
+**team_shooting_stats.tsv**
+```
+team_id	attempts	made	missed	percentage
+1	5	2	3	40.0%
+2	4	3	1	75.0%
+```
+
+**all_shots.tsv**
+```
+shot_id	frame_start	frame_end	team_id	player_id	made	position_x	position_y	hoop_id
+1	120	140	1	5	True	450.5	320.0	1
+2	280	300	2	8	False	520.3	310.5	2
+```
+
+---
+
 ## 🛠️ Tecnologie Utilizzate
 
 | Tecnologia | Versione | Utilizzo |
@@ -329,9 +442,6 @@ Classe per la visualizzazione della vista tattica del campo con i giocatori:
 | **NumPy** | 1.26.4 | Operazioni numeriche |
 | **Transformers** | 4.46.3 | Libreria Hugging Face per CLIP |
 | **Fashion-CLIP** | latest | Modello per riconoscimento colori maglie |
-
----
-
 
 ---
 
@@ -383,13 +493,16 @@ Il programma elabora il video nel seguente ordine:
 1. **Lettura video**: Carica tutti i frame dall'input video
 2. **Player Tracking**: Rileva e traccia i giocatori (usa cache se disponibile)
 3. **Ball Tracking**: Rileva e traccia il pallone (filtra per confidence)
-4. **Court Keypoint Detection**: Rileva i keypoint del campo tattico
-5. **Team Assignment**: Assegna i giocatori alle squadre (CLIP-based)
-6. **Ball Acquisition**: Rileva il possesso palla
-7. **Pass/Interception Detection**: Identifica passaggi e intercetti
-8. **Tactical View Conversion**: Trasforma posizioni nel sistema tattico
-9. **Drawing**: Disegna tutti gli overlay (tracce, tattica, statistiche)
-10. **Video Output**: Salva il video processato in AVI
+4. **Hoop Tracking**: Rileva e traccia i canestri (usa lo stesso modello del ball tracker)
+5. **Court Keypoint Detection**: Rileva i keypoint del campo tattico
+6. **Team Assignment**: Assegna i giocatori alle squadre (CLIP-based)
+7. **Ball Acquisition**: Rileva il possesso palla
+8. **Pass/Interception Detection**: Identifica passaggi e intercetti
+9. **Shooting Detection**: Rileva i tiri e determina se sono andati a segno
+10. **Tactical View Conversion**: Trasforma posizioni nel sistema tattico
+11. **Drawing**: Disegna tutti gli overlay (tracce, canestri, tiri, tattica, statistiche)
+12. **TSV Export**: Esporta statistiche tiri in formato TSV
+13. **Video Output**: Salva il video processato in AVI
 
 ### Troubleshooting
 
@@ -407,6 +520,15 @@ rm stubs/*.pkl
 
 **Memory Error During Video Save**: Verificare spazio disponibile e ridurre risoluzione del video di output
 
+**Shooting Detection non accurato**: Modificare le soglie in `main.py`:
+```python
+shooting_detector = ShootingDetector(
+    hoop_proximity_threshold=300,  # Aumentare se tiri non rilevati
+    made_shot_threshold=100,       # Diminuire per essere più precisi
+    min_frames_between_shots=20    # Aumentare per evitare duplicati
+)
+```
+
 ---
 
 ## 📊 Pipeline di Elaborazione
@@ -422,65 +544,69 @@ rm stubs/*.pkl
 │  read_video()    │  Estrae tutti i frame
 └────────┬─────────┘
          │
-    ┌────┴──────────────────────┐
-    │                           │
-    ▼                           ▼
-┌─────────┐  ┌──────────┐  ┌──────────┐
-│ Player  │  │   Ball   │  │  Court   │
-│ Tracker │  │ Tracker  │  │Keypoint  │
-│ (YOLO   │  │  (YOLO   │  │Detector  │
-│ +ByteT) │  │+MaxConf) │  │  (YOLO)  │
-└────┬────┘  └────┬─────┘  └────┬─────┘
-     │            │             │
-     ▼            ▼             ▼
- ┌────────┐  ┌────────┐  ┌──────────────┐
- │ Player │  │  Ball  │  │ Keypoint Val │
- │ Tracks │  │ Tracks │  │  idation &   │
- │        │  │(+filter│  │ Homography   │
- │        │  │ +interp│  │              │
- └────┬───┘  └───┬────┘  └────┬─────────┘
-      │          │            │
-      └──────────┴──────┬─────┘
-                        │
-                        ▼
-        ┌───────────────────────────┐
-        │ Team Assignment (CLIP)    │
-        │ Ball Acquisition Detector │
-        │ Pass/Interception Detect  │
-        └──────────┬────────────────┘
+    ┌────┴──────────────────────────────┐
+    │                                   │
+    ▼                                   ▼
+┌─────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│ Player  │  │   Ball   │  │  Hoop    │  │  Court   │
+│ Tracker │  │ Tracker  │  │ Tracker  │  │Keypoint  │
+│ (YOLO   │  │  (YOLO   │  │  (YOLO   │  │Detector  │
+│ +ByteT) │  │+MaxConf) │  │  same    │  │  (YOLO)  │
+│         │  │          │  │  model)  │  │          │
+└────┬────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+     │            │             │             │
+     ▼            ▼             ▼             ▼
+ ┌────────┐  ┌────────┐  ┌──────────┐  ┌──────────────┐
+ │ Player │  │  Ball  │  │  Hoop    │  │ Keypoint Val │
+ │ Tracks │  │ Tracks │  │  Tracks  │  │  idation &   │
+ │        │  │(+filter│  │          │  │ Homography   │
+ │        │  │ +interp│  │          │  │              │
+ └────┬───┘  └───┬────┘  └────┬─────┘  └────┬─────────┘
+      │          │            │             │
+      └──────────┴────────────┴──────┬──────┘
+                                     │
+                                     ▼
+        ┌────────────────────────────────────────┐
+        │ Team Assignment (CLIP)                 │
+        │ Ball Acquisition Detector              │
+        │ Pass/Interception Detect               │
+        │ Shooting Detector (uses hoop tracks)   │
+        └──────────┬─────────────────────────────┘
                    │
-        ┌──────────┴──────────┬──────────┐
-        │                     │          │
-        ▼                     ▼          ▼
-   ┌──────────┐       ┌──────────────┐ ┌────────────────┐
-   │ Player   │       │    Tactical  │ │  Ball Control  │
-   │ Tracks   │       │   View Conv. │ │  & Passes      │
-   │ Drawer   │       │              │ │   Drawer       │
-   │(ellissi) │       │              │ │   (overlay)    │
-   └────┬─────┘       └────┬─────────┘ └────────┬───────┘
-        │                  │                    │
-        │       ┌──────────┴──────────┐         │
-        │       │                     │         │
-        ▼       ▼                     ▼         ▼
-    ┌──────────────┐       ┌──────────────────┐
-    │  Ball Tracks │       │   Tactical View  │
-    │  Drawer      │       │    Drawer        │
-    │  (triangoli) │       │  (players+campo) │
-    └──────┬───────┘       └────────┬─────────┘
-           │                        │
-           └────────────┬───────────┘
+        ┌──────────┴──────────┬──────────┬───────────────┐
+        │                     │          │               │
+        ▼                     ▼          ▼               ▼
+   ┌──────────┐       ┌──────────────┐ ┌────────────┐ ┌──────────┐
+   │ Player   │       │    Tactical  │ │  Ball Ctrl │ │ Shooting │
+   │ Tracks   │       │   View Conv. │ │  & Passes  │ │ Drawer   │
+   │ Drawer   │       │              │ │   Drawer   │ │ (banner) │
+   │(ellissi) │       │              │ │   (overlay)│ │          │
+   └────┬─────┘       └────┬─────────┘ └────┬───────┘ └────┬─────┘
+        │                  │                │              │
+        │       ┌──────────┴──────────┐     │              │
+        │       │                     │     │              │
+        ▼       ▼                     ▼     ▼              ▼
+    ┌──────────────┐       ┌──────────────────┐    ┌──────────────┐
+    │  Ball Tracks │       │   Tactical View  │    │  Hoop Drawer │
+    │  Drawer      │       │    Drawer        │    │  (bbox+label)│
+    │  (triangoli) │       │  (players+campo) │    │              │
+    └──────┬───────┘       └────────┬─────────┘    └──────┬───────┘
+           │                        │                     │
+           └────────────┬───────────┴─────────────────────┘
                         │
                         ▼
-        ┌─────────────────────────┐
-        │    Composite Frames     │
-        │  (tutti gli overlay)    │
-        └────────┬────────────────┘
+        ┌─────────────────────────────┐
+        │    Composite Frames         │
+        │  (tutti gli overlay)        │
+        └────────┬────────────────────┘
                  │
-                 ▼
-        ┌─────────────────────────┐
-        │    save_video()         │
-        │ (Output AVI,24fps)      │
-        └─────────────────────────┘
+        ┌────────┴────────┐
+        │                 │
+        ▼                 ▼
+┌─────────────────┐  ┌─────────────────┐
+│  save_video()   │  │  export_to_tsv  │
+│ (Output AVI)    │  │ (Shooting Stats)│
+└─────────────────┘  └─────────────────┘
 ```
 
 ---
@@ -494,6 +620,9 @@ Il progetto è stato recentemente ampliato con:
 - ✅ **Possesso Palla**: Rilevamento e visualizzazione del possesso palla
 - ✅ **Passaggi e Intercetti**: Rilevamento di passaggi e intercetti tra giocatori
 - ✅ **Statistiche Ball Control**: Percentuale di controllo palla per squadra
+- ✅ **Hoop Tracking**: Rilevamento e tracking dei canestri
+- ✅ **Shooting Detection**: Rilevamento dei tiri e determinazione esito (fatto/sbagliato)
+- ✅ **Shooting Statistics**: Export statistiche tiri in formato TSV
 
 Sviluppi futuri previsti:
 - **Riconoscimento automatico colori squadre**: Attualmente il sistema riconosce solo "white shirt" e "dark blue shirt". Si prevede di implementare un rilevamento automatico dei colori dominanti delle squadre
@@ -501,6 +630,8 @@ Sviluppi futuri previsti:
 - **Analisi tattica avanzata**: Formazioni, pressing, spazi lasciati
 - **Interpolazione pallone avanzata**: Affinare i filtri e l'interpolazione per casi limite (rimbalzi, occlusion)
 - **Supporto multi-view**: Analisi da telecamere multiple
+- **Tiri da 3 punti**: Classificazione tiri da 2 e da 3 punti in base alla posizione
+- **Shot chart**: Visualizzazione grafica delle posizioni di tiro sul campo
 
 ---
 
@@ -513,6 +644,8 @@ runs/                # Output YOLO
 stubs/               # Cache delle tracce
 __pycache__/         # Cache Python
 .venv/               # Virtual environment
+venv/                # Virtual environment alternativo
+venv311/             # Virtual environment Python 3.11
 ```
 
 ---

@@ -1,0 +1,1 @@
+from .shooting_detector import ShootingDetector

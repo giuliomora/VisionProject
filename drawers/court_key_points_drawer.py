@@ -7,6 +7,7 @@ class CourtKeypointDrawer:
 
     def draw(self, frames, court_keypoints):
         """Disegna keypoint del campo sui frame. Ritorna lista di frame annotati."""
+        
         vertex_annotator = sv.VertexAnnotator(
             color=sv.Color.from_hex(self.keypoint_color),
             radius=8)
@@ -19,14 +20,19 @@ class CourtKeypointDrawer:
         )
         
         output_frames = []
-        for index,frame in enumerate(frames):
+        for index, frame in enumerate(frames):
             annotated_frame = frame.copy()
 
             keypoints = court_keypoints[index]
             annotated_frame = vertex_annotator.annotate(
                 scene=annotated_frame,
                 key_points=keypoints)
-            keypoints_numpy = keypoints.cpu().numpy()
+            
+            if hasattr(keypoints, 'cpu'):
+                keypoints_numpy = keypoints.cpu().numpy()
+            else:
+                keypoints_numpy = keypoints
+                
             annotated_frame = vertex_label_annotator.annotate(
                 scene=annotated_frame,
                 key_points=keypoints_numpy)
