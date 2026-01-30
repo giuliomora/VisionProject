@@ -1,4 +1,4 @@
-numpy>=1.26.0
+numpy==1.26.0
 opencv_python==4.9.0.80
 opencv_python_headless==4.10.0.84
 pandas==2.0.3
