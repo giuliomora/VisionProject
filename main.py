@@ -29,7 +29,7 @@ from configs import(
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Basketball Video Analysis')
-    parser.add_argument('--input_video', type=str, default='input_videos/video_1.mp4',
+    parser.add_argument('--input_video', type=str, default='input_videos/video_4.mp4',
                         help='Path to input video file')
     parser.add_argument('--output_video', type=str, default=OUTPUT_VIDEO_PATH, 
                         help='Path to output video file')
@@ -149,10 +149,10 @@ def main():
     ## Draw Frame Number
     output_video_frames = frame_number_drawer.draw(output_video_frames)
 
-    # Draw Team Ball Control
-    output_video_frames = team_ball_control_drawer.draw(output_video_frames,
-                                                        player_assignment,
-                                                        ball_aquisition)
+    # # Draw Team Ball Control
+    # output_video_frames = team_ball_control_drawer.draw(output_video_frames,
+    #                                                     player_assignment,
+    #                                                     ball_aquisition)
 
     # Draw Passes and Interceptions
     output_video_frames = pass_and_interceptions_drawer.draw(output_video_frames,

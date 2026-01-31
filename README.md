@@ -263,13 +263,33 @@ Utility per operazioni su bounding box:
 ### 14. **TeamAssigner** (`team_assigner/team_assigner.py`)
 Classe per l'assegnazione dei giocatori alle squadre in base al colore della maglia:
 
-- **`__init__(team_1_class_name, team_2_class_name)`**: Inizializza i nomi dei colori delle squadre (default: "white shirt", "dark blue shirt")
+- **`__init__(team_1_class_name, team_2_class_name)`**: Inizializza i nomi dei colori delle squadre (default: "white shirt", "black shirt")
 - **`load_model()`**: Carica il modello Fashion-CLIP per il riconoscimento dei colori
 - **`get_player_color(frame, bbox)`**: Classifica il colore della maglia di un giocatore usando CLIP
 - **`get_player_team(frame, player_bbox, player_id)`**: Assegna un giocatore a una squadra (1 o 2) in base al colore
-- **`get_player_teams_across_frames(video_frames, player_tracks, read_from_stub, stub_path)`**: Assegna le squadre a tutti i giocatori in tutti i frame
+- **`get_player_teams_across_frames(video_frames, player_tracks, read_from_stub, stub_path)`**: Assegna le squadre a tutti i giocatori in tutti i frame utilizzando un **sistema di voting multi-frame** per stabilizzare le assegnazioni
+- **`_print_assignment_stats(player_assignment)`**: Stampa statistiche di debug sulla distribuzione Team 1 vs Team 2
 
-> ⚠️ **Limitazione attuale**: Il sistema riconosce attualmente solo **due colori hardcoded**: `"white shirt"` (squadra 1) e `"dark blue shirt"` (squadra 2). Per supportare altri colori, è necessario modificare i parametri `team_1_class_name` e `team_2_class_name` nel costruttore di `TeamAssigner` in `main.py`.
+**Sistema di Voting Multi-Frame**:
+Il TeamAssigner utilizza un sistema di voting per stabilizzare le assegnazioni:
+1. **Prima passata**: Per ogni giocatore, raccoglie voti su tutti i frame in cui appare
+2. **Reset cache periodico**: La cache viene resettata ogni 30 frame per permettere ri-valutazione
+3. **Assegnazione finale**: Il team viene assegnato in base alla maggioranza dei voti
+4. **Consistenza**: Una volta determinato, il team rimane costante per tutto il video
+
+**Debug Output**:
+```
+Voti per giocatore:
+  Player 1: Team1=118 (64%), Team2=66 (36%)
+  Player 2: Team1=95 (61%), Team2=60 (39%)
+  ...
+
+Statistiche assegnazione:
+  Team 1: 2956 (50.2%)
+  Team 2: 2930 (49.8%)
+```
+
+> ⚠️ **Configurazione colori**: Per modificare i colori delle squadre, cambiare i parametri `team_1_class_name` e `team_2_class_name` nel costruttore di `TeamAssigner`. Default: `"white shirt"` (squadra 1) e `"black shirt"` (squadra 2).
 
 ### 15. **BallAquisitionDetector** (`ball_acquisition/ball_aquisition_detector.py`)
 Classe per il rilevamento del possesso palla da parte dei giocatori:

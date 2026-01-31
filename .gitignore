@@ -39,7 +39,6 @@ env/
 # Project-specific
 stubs/
 output_videos/
-input_videos/
 runs/
 models/*.pt
 *.pt
