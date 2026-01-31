@@ -24,10 +24,10 @@ class ShootingDetector:
     """Rileva i tiri e se sono andati a segno."""
     
     def __init__(self, 
-                 hoop_proximity_threshold: float = 300,    # Aumentato
+                 hoop_proximity_threshold: float = 250,    # Aumentato
                  ball_rising_frames: int = 3,              # Ridotto
                  made_shot_threshold: float = 100,         # Aumentato
-                 min_frames_between_shots: int = 20,       # Ridotto
+                 min_frames_between_shots: int = 90,       # Ridotto
                  debug: bool = True):                      # Debug mode
         self.hoop_proximity_threshold = hoop_proximity_threshold
         self.ball_rising_frames = ball_rising_frames
