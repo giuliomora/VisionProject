@@ -8,6 +8,7 @@ from ball_aquisition import BallAquisitionDetector
 from pass_and_interception_detector import PassAndInterceptionDetector
 from tactical_view_converter import TacticalViewConverter
 from shooting_detector import ShootingDetector
+from assist_detector import AssistDetector
 from drawers import (
     PlayerTracksDrawer, 
     BallTracksDrawer,
@@ -17,7 +18,9 @@ from drawers import (
     PassInterceptionDrawer,
     TacticalViewDrawer,
     HoopDrawer,
-    ShootingDrawer
+    ShootingDrawer,
+    ShootingPositionsDrawer,
+    AssistDrawer
 )
 from configs import(
     STUBS_DEFAULT_PATH,
@@ -104,9 +107,9 @@ def main():
 
       # Detect Shots
     shooting_detector = ShootingDetector(
-        hoop_proximity_threshold=200,
-        made_shot_threshold=60,
-        min_frames_between_shots=60 # 60 o 90, da testare, non so quanto duri un tiro
+        hoop_proximity_threshold=120,  # Ridotto da 200 per rilevare il tiro più tardi
+        made_shot_threshold=80,        # Aumentato da 60 per tollerare più variazione
+        min_frames_between_shots=60
     )
     shots = shooting_detector.detect_shots(
         ball_tracks,
@@ -119,11 +122,65 @@ def main():
     shooting_detector.export_to_tsv(os.path.join(args.stub_path, 'team_shooting_stats.tsv'))
     shooting_detector.export_shots_to_tsv(os.path.join(args.stub_path, 'all_shots.tsv'))
     
+    # DEBUG: Mostra come viene identificato il tiratore per ogni tiro rilevato
+    print("\n" + "="*70)
+    print("DEBUG: ANALISI DETTAGLIATA DEI TIRI RILEVATI")
+    print("="*70)
+    for i, shot in enumerate(shots):
+        print(f"\n--- TIRO #{i+1} ---")
+        shooting_detector.debug_shooter_detection(
+            frame_idx=shot.frame_start,
+            ball_acquisition=ball_aquisition,
+            player_assignment=player_assignment,
+            player_tracks=player_tracks,
+            tactical_player_positions=tactical_player_positions
+        )
+    
+    # Generate shooting positions PDF
+    shooting_positions_drawer = ShootingPositionsDrawer(
+        court_image_path="./images/basketball_court.png"
+    )
+    shooting_positions_drawer.draw_shooting_positions(
+        shots=shots,
+        tactical_player_positions=tactical_player_positions,
+        output_path="./images/shooting_positions.pdf"
+    )
+    
     print(f"\nShooting Stats:")
     for team_id, stats in shooting_detector.get_team_stats().items():
         print(f"  Team {team_id}: {stats['made']}/{stats['attempts']} "
               f"({stats['made']/stats['attempts']*100:.1f}% FG)" if stats['attempts'] > 0 
               else f"  Team {team_id}: No shots")
+    
+    # Detect Assists
+    assist_detector = AssistDetector(
+        max_frames_pass_to_shot=150,  # ~5 secondi a 30fps
+        debug=True
+    )
+    assists = assist_detector.detect_assists(
+        passes=passes,
+        shots=shots,
+        ball_acquisition=ball_aquisition,
+        player_assignment=player_assignment
+    )
+    
+    # Export statistiche complete to CSV (tiri, assist, passaggi, intercetti, possesso)
+    assist_detector.export_to_csv(
+        output_path=os.path.join(args.stub_path, 'game_stats.csv'),
+        shots=shots,
+        passes=passes,
+        interceptions=interceptions,
+        player_assignment=player_assignment,
+        ball_acquisition=ball_aquisition
+    )
+    
+    # Print Assist Stats
+    print(f"\nAssist Stats:")
+    for team_id, stats in assist_detector.get_team_stats().items():
+        print(f"  Team {team_id}: {stats['total_assists']} assists")
+        for player_id, count in stats['assists_by_player'].items():
+            print(f"    - Player {player_id}: {count} assist(s)")
+    
     # Draw output   
     # Initialize Drawers
     player_tracks_drawer = PlayerTracksDrawer()
@@ -135,6 +192,7 @@ def main():
     tactical_view_drawer = TacticalViewDrawer()
     hoop_drawer = HoopDrawer()  # Nuovo drawer
     shooting_drawer = ShootingDrawer()  # Nuovo drawer
+    assist_drawer = AssistDrawer()  # Drawer per assist
 
     ## Draw object Tracks
     output_video_frames = player_tracks_drawer.draw(video_frames, 
@@ -176,6 +234,9 @@ def main():
     
     # Draw Shots
     output_video_frames = shooting_drawer.draw(output_video_frames, shots)
+    
+    # Draw Assists
+    output_video_frames = assist_drawer.draw(output_video_frames, assists)
 
 
     # Save video

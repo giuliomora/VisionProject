@@ -226,6 +226,103 @@ class ShootingDetector:
         
         return None, None, None
 
+    def debug_shooter_detection(self,
+                                 frame_idx: int,
+                                 ball_acquisition: List[int],
+                                 player_assignment: List[Dict],
+                                 player_tracks: List[Dict],
+                                 tactical_player_positions: List[Dict] = None,
+                                 look_back_frames: int = 60):
+        """
+        METODO DI DEBUG: Mostra passo per passo come viene identificato il tiratore.
+        
+        Questo metodo spiega:
+        1. Come viene trovato chi ha la palla
+        2. Come viene determinata la posizione video
+        3. Come viene trasformata in posizione tattica
+        """
+        print("\n" + "="*70)
+        print(f"DEBUG SHOOTER DETECTION - Frame {frame_idx}")
+        print("="*70)
+        
+        print(f"\n[STEP 1] Ricerca del possessore della palla")
+        print(f"         Cerco indietro fino a {look_back_frames} frame...")
+        
+        found_frame = None
+        found_player = None
+        
+        for look_back in range(min(look_back_frames, frame_idx)):
+            check_frame = frame_idx - look_back
+            
+            # Mostra cosa c'è in ball_acquisition per questo frame
+            if check_frame < len(ball_acquisition):
+                ball_holder = ball_acquisition[check_frame]
+                
+                if ball_holder != -1:
+                    print(f"\n         ✓ Frame {check_frame} (look_back={look_back}): "
+                          f"Giocatore {ball_holder} ha la palla!")
+                    found_frame = check_frame
+                    found_player = ball_holder
+                    break
+                else:
+                    if look_back < 5:  # Mostra solo i primi 5 per non intasare
+                        print(f"         Frame {check_frame}: nessuno ha la palla (ball_acquisition={ball_holder})")
+        
+        if found_player is None:
+            print(f"\n         ✗ Nessun giocatore trovato con la palla negli ultimi {look_back_frames} frame")
+            return
+        
+        print(f"\n[STEP 2] Identificazione del team")
+        team_id = 1
+        if found_frame < len(player_assignment):
+            team_id = player_assignment[found_frame].get(found_player, 1)
+            print(f"         player_assignment[{found_frame}][{found_player}] = Team {team_id}")
+        else:
+            print(f"         ✗ player_assignment non disponibile per frame {found_frame}, uso Team 1 di default")
+        
+        print(f"\n[STEP 3] Posizione VIDEO del giocatore")
+        position = None
+        if found_frame < len(player_tracks) and found_player in player_tracks[found_frame]:
+            player_data = player_tracks[found_frame][found_player]
+            bbox = player_data.get('bbox')
+            if bbox:
+                position = get_center_of_bbox(bbox)
+                print(f"         Bounding box: {bbox}")
+                print(f"         Centro (posizione video): ({position[0]:.1f}, {position[1]:.1f}) pixel")
+            else:
+                print(f"         ✗ Nessun bbox disponibile per player {found_player}")
+        else:
+            print(f"         ✗ Player {found_player} non trovato in player_tracks[{found_frame}]")
+        
+        print(f"\n[STEP 4] Posizione TATTICA del giocatore")
+        if tactical_player_positions is not None:
+            tactical_pos = None
+            for offset in range(0, 30):
+                check_frame = frame_idx - offset
+                if check_frame >= 0 and check_frame < len(tactical_player_positions):
+                    frame_positions = tactical_player_positions[check_frame]
+                    if found_player in frame_positions:
+                        tactical_pos = frame_positions[found_player]
+                        print(f"         Trovata posizione tattica al frame {check_frame} (offset={offset})")
+                        print(f"         Posizione tattica: ({tactical_pos[0]:.1f}, {tactical_pos[1]:.1f})")
+                        print(f"         (Coordinate nel sistema 300x161 del campo)")
+                        break
+            
+            if tactical_pos is None:
+                print(f"         ✗ Nessuna posizione tattica trovata per player {found_player}")
+                print(f"           Possibili cause:")
+                print(f"           - Il giocatore era fuori dal campo")
+                print(f"           - I keypoint del campo non erano visibili")
+                print(f"           - L'omografia non era calcolabile")
+        else:
+            print(f"         (tactical_player_positions non fornito)")
+        
+        print(f"\n[RISULTATO]")
+        print(f"         Tiratore: Player {found_player}")
+        print(f"         Team: {team_id}")
+        print(f"         Posizione video: {position}")
+        print("="*70 + "\n")
+
     def detect_shots(self,
                      ball_tracks: List[Dict],
                      hoop_tracks: List[Dict],
