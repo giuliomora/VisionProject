@@ -27,12 +27,14 @@ class ShootingDetector:
                  hoop_proximity_threshold: float = 250,    # Aumentato
                  ball_rising_frames: int = 3,              # Ridotto
                  made_shot_threshold: float = 100,         # Aumentato
-                 min_frames_between_shots: int = 90,       # Ridotto
+                 min_frames_between_shots: int = 90,       # Ridotto (per tiri sbagliati)
+                 cooldown_after_made_shot: int = 150,      # ~5 secondi a 30fps dopo un canestro segnato
                  debug: bool = True):                      # Debug mode
         self.hoop_proximity_threshold = hoop_proximity_threshold
         self.ball_rising_frames = ball_rising_frames
         self.made_shot_threshold = made_shot_threshold
         self.min_frames_between_shots = min_frames_between_shots
+        self.cooldown_after_made_shot = cooldown_after_made_shot  # Cooldown dopo tiro segnato
         self.debug = debug
         self.shots: List[Shot] = []
 
@@ -233,15 +235,26 @@ class ShootingDetector:
         """Rileva tutti i tiri nel video."""
         self.shots = []
         last_shot_frame = -self.min_frames_between_shots
+        last_shot_was_made = False  # Traccia se l'ultimo tiro era segnato
         
         if self.debug:
             print("\n=== SHOOTING DETECTION ===")
             print(f"Threshold proximity: {self.hoop_proximity_threshold}")
             print(f"Threshold made: {self.made_shot_threshold}")
+            print(f"Cooldown after made shot: {self.cooldown_after_made_shot} frames")
+            print(f"Min frames between missed shots: {self.min_frames_between_shots} frames")
         
         for frame_idx in range(len(ball_tracks)):
+            # Determina il cooldown in base al risultato dell'ultimo tiro
+            # Se l'ultimo tiro era segnato, usa un cooldown più lungo
+            # Se era sbagliato, usa un cooldown più breve (può esserci un rimbalzo offensivo)
+            if last_shot_was_made:
+                current_cooldown = self.cooldown_after_made_shot
+            else:
+                current_cooldown = self.min_frames_between_shots
+            
             # Salta se troppo vicino all'ultimo tiro
-            if frame_idx - last_shot_frame < self.min_frames_between_shots:
+            if frame_idx - last_shot_frame < current_cooldown:
                 continue
             
             ball_center = self._get_ball_center(ball_tracks[frame_idx])
@@ -292,10 +305,12 @@ class ShootingDetector:
                     self.shots.append(shot)
                     
                     last_shot_frame = frame_idx
+                    last_shot_was_made = made  # Memorizza se questo tiro era segnato
                     
+                    cooldown_info = f"(cooldown: {self.cooldown_after_made_shot}f)" if made else f"(cooldown: {self.min_frames_between_shots}f)"
                     print(f"Shot detected: Frame {frame_idx}, "
                           f"Team {team_id}, Player {player_id}, "
-                          f"Made: {made}, Dist: {dist:.1f}")
+                          f"Made: {made}, Dist: {dist:.1f} {cooldown_info}")
         
         return self.shots
 

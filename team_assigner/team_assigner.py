@@ -23,7 +23,7 @@ class TeamAssigner:
     """
     def __init__(self,
                  team_1_class_name= "white shirt",
-                 team_2_class_name= "black shirt",
+                 team_2_class_name= "dark blue shirt",
                  ):
         """
         Initialize the TeamAssigner with specified team jersey descriptions.

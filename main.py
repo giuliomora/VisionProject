@@ -29,7 +29,7 @@ from configs import(
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Basketball Video Analysis')
-    parser.add_argument('--input_video', type=str, default='input_videos/video_4.mp4',
+    parser.add_argument('--input_video', type=str, default='input_videos/video_2.mp4',
                         help='Path to input video file')
     parser.add_argument('--output_video', type=str, default=OUTPUT_VIDEO_PATH, 
                         help='Path to output video file')
