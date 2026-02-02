@@ -1,21 +1,21 @@
 from copy import deepcopy
 
 class PassAndInterceptionDetector():
-    """Rileva passaggi e intercetti tra squadre."""
+    """Detects passes and interceptions between teams."""
+    
     def __init__(self):
         pass 
 
-    def detect_passes(self,ball_acquisition,player_assignment):
-        """Rileva passaggi riusciti tra giocatori della stessa squadra."""
-        
+    def detect_passes(self, ball_acquisition, player_assignment):
+        """Detect successful passes between same-team players."""
         passes = [-1] * len(ball_acquisition)
-        prev_holder=-1
-        previous_frame=-1
+        prev_holder = -1
+        previous_frame = -1
 
         for frame in range(1, len(ball_acquisition)):
             if ball_acquisition[frame - 1] != -1:
                 prev_holder = ball_acquisition[frame - 1]
-                previous_frame= frame - 1
+                previous_frame = frame - 1
             
             current_holder = ball_acquisition[frame]
             
@@ -28,16 +28,16 @@ class PassAndInterceptionDetector():
 
         return passes
 
-    def detect_interceptions(self,ball_acquisition,player_assignment):
-        """Rileva intercetti quando il possesso cambia tra squadre diverse."""
+    def detect_interceptions(self, ball_acquisition, player_assignment):
+        """Detect interceptions when possession changes between teams."""
         interceptions = [-1] * len(ball_acquisition)
-        prev_holder=-1
-        previous_frame=-1
+        prev_holder = -1
+        previous_frame = -1
         
         for frame in range(1, len(ball_acquisition)):
             if ball_acquisition[frame - 1] != -1:
                 prev_holder = ball_acquisition[frame - 1]
-                previous_frame= frame - 1
+                previous_frame = frame - 1
 
             current_holder = ball_acquisition[frame]
             

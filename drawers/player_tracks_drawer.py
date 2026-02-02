@@ -1,17 +1,17 @@
 from .utils import draw_ellipse,draw_traingle
 
 class PlayerTracksDrawer:
-    """Disegna i tracciati dei giocatori e gli indicatori di possesso palla."""
-    def __init__(self,team_1_color=[255, 245, 238],team_2_color=[128, 0, 0]):
-        """Inizializza il disegnatore di tracciati dei giocatori."""
+    """Draws player tracks and ball possession indicators."""
+    
+    def __init__(self, team_1_color=[255, 245, 238], team_2_color=[128, 0, 0]):
+        """Initialize with team colors."""
         self.default_player_team_id = 1
-        self.team_1_color=team_1_color
-        self.team_2_color=team_2_color
+        self.team_1_color = team_1_color
+        self.team_2_color = team_2_color
 
-    def draw(self,video_frames,tracks,player_assignment,ball_aquisition):
-        """Disegna i tracciati dei giocatori e gli indicatori di possesso palla sui frame."""
-
-        output_video_frames= []
+    def draw(self, video_frames, tracks, player_assignment, ball_aquisition):
+        """Draw player tracks and possession indicators on frames."""
+        output_video_frames = []
         for frame_num, frame in enumerate(video_frames):
             frame = frame.copy()
 

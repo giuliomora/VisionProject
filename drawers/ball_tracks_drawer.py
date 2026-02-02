@@ -1,20 +1,20 @@
 from .utils import draw_traingle
 
 class BallTracksDrawer:
-    """Disegna i tracciati della palla sui frame video."""
+    """Draws ball tracks on video frames."""
 
     def __init__(self):
-        """Inizializza il disegnatore dei tracciati della palla."""
+        """Initialize ball pointer color."""
         self.ball_pointer_color = (0, 255, 0)
 
     def draw(self, video_frames, tracks):
-        """Disegna i tracciati della palla sui frame."""
+        """Draw ball tracks on frames."""
         output_video_frames = []
         for frame_num, frame in enumerate(video_frames):
             frame = frame.copy()
             ball_dict = tracks[frame_num]
 
-            # Draw ball 
+            # Draw ball
             for _, ball in ball_dict.items():
                 if ball["bbox"] is None:
                     continue

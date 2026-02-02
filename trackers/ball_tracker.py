@@ -8,12 +8,13 @@ from utils import read_stub, save_stub
 
 
 class BallTracker:
-    """Gestisce rilevamento e tracciamento della palla e dell'hoop usando YOLO."""
+    """Handles ball and hoop detection/tracking using YOLO."""
+    
     def __init__(self, model_path):
         self.model = YOLO(model_path) 
 
     def detect_frames(self, frames):
-        """Rileva la palla in una sequenza di frame usando batch processing."""
+        """Detect ball in frames using batch processing."""
         batch_size=20 
         detections = [] 
         for i in range(0,len(frames),batch_size):
@@ -22,7 +23,7 @@ class BallTracker:
         return detections
 
     def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
-        """Ottiene risultati di tracciamento palla con cache opzionale."""
+        """Get ball tracks with optional caching."""
         tracks = read_stub(read_from_stub,stub_path)
         if tracks is not None:
             if len(tracks) == len(frames):
@@ -60,7 +61,7 @@ class BallTracker:
         return tracks
 
     def get_hoop_tracks(self, frames, read_from_stub=False, stub_path=None):
-        """Ottiene risultati di tracciamento hoop con cache opzionale."""
+        """Get hoop tracks with optional caching."""
         tracks = read_stub(read_from_stub, stub_path)
         if tracks is not None:
             if len(tracks) == len(frames):
@@ -93,8 +94,7 @@ class BallTracker:
         return tracks
 
     def remove_wrong_detections(self, ball_positions):
-        """Filtra rilevamenti errati in base alla distanza massima consentita."""
-        
+        """Filter wrong detections based on max allowed distance."""
         maximum_allowed_distance = 25
         last_good_frame_index = -1
 
@@ -120,7 +120,7 @@ class BallTracker:
         return ball_positions
 
     def interpolate_ball_positions(self, ball_positions):
-        """Interpola posizioni mancanti della palla per un tracciamento fluido."""
+        """Interpolate missing ball positions for smooth tracking."""
         ball_positions = [x.get(1, {}).get('bbox', []) for x in ball_positions]
         df_ball_positions = pd.DataFrame(ball_positions, columns=['x1', 'y1', 'x2', 'y2'])
 

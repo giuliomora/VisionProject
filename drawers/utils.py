@@ -1,4 +1,4 @@
-"""Funzioni di utilità per disegnare forme sui frame video."""
+"""Utility functions for drawing shapes on video frames."""
 
 import cv2 
 import numpy as np
@@ -6,9 +6,9 @@ import sys
 sys.path.append('../')
 from utils import get_center_of_bbox, get_bbox_width, get_foot_position
 
-def draw_traingle(frame,bbox,color):
-    """Disegna un triangolo riempito sul frame."""
-    y= int(bbox[1])
+def draw_traingle(frame, bbox, color):
+    """Draw filled triangle on frame."""
+    y = int(bbox[1])
     x,_ = get_center_of_bbox(bbox)
 
     triangle_points = np.array([
@@ -21,8 +21,8 @@ def draw_traingle(frame,bbox,color):
 
     return frame
 
-def draw_ellipse(frame,bbox,color,track_id=None):
-    """Disegna un'ellisse e opzionalmente l'ID del tracciamento."""
+def draw_ellipse(frame, bbox, color, track_id=None):
+    """Draw ellipse and optionally track ID."""
     y2 = int(bbox[3])
     x_center, _ = get_center_of_bbox(bbox)
     width = get_bbox_width(bbox)

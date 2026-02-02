@@ -1,10 +1,10 @@
-"""Funzioni per leggere e scrivere file video."""
+"""Functions for reading and writing video files."""
 
 import cv2
 import os
 
 def read_video(video_path):
-    """Legge tutti i frame da un video."""
+    """Read all frames from video."""
     cap = cv2.VideoCapture(video_path)
     frames = []
     while True:
@@ -14,9 +14,9 @@ def read_video(video_path):
         frames.append(frame)
     return frames
 
-def save_video(ouput_video_frames,output_video_path):
-    """Salva una sequenza di frame come video usando codec XVID."""
-    # If folder doesn't exist, create it
+def save_video(ouput_video_frames, output_video_path):
+    """Save frame sequence as video using XVID codec."""
+    # Create folder if needed
     if not os.path.exists(os.path.dirname(output_video_path)):
         os.makedirs(os.path.dirname(output_video_path))
 

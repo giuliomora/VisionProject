@@ -1,12 +1,13 @@
 import supervision as sv
 
 class CourtKeypointDrawer:
-    """Disegna i keypoint del campo sui frame."""
+    """Draws court keypoints on frames."""
+    
     def __init__(self):
         self.keypoint_color = '#ff2c2c'
 
     def draw(self, frames, court_keypoints):
-        """Disegna keypoint del campo sui frame. Ritorna lista di frame annotati."""
+        """Draw court keypoints on frames."""
         
         vertex_annotator = sv.VertexAnnotator(
             color=sv.Color.from_hex(self.keypoint_color),

@@ -5,14 +5,15 @@ sys.path.append('../')
 from utils import read_stub, save_stub
 
 class PlayerTracker:
-    """Gestisce rilevamento e tracciamento giocatori usando YOLO e ByteTrack."""
+    """Handles player detection and tracking using YOLO and ByteTrack."""
+    
     def __init__(self, model_path):
-        """Inizializza con modello YOLO e tracker ByteTrack."""
+        """Initialize YOLO model and ByteTrack tracker."""
         self.model = YOLO(model_path) 
         self.tracker = sv.ByteTrack()
 
     def detect_frames(self, frames):
-        """Rileva giocatori in una sequenza di frame usando batch processing."""
+        """Detect players in frames using batch processing."""
         batch_size=20 
         detections = [] 
         for i in range(0,len(frames),batch_size):
@@ -21,7 +22,7 @@ class PlayerTracker:
         return detections
 
     def get_object_tracks(self, frames, read_from_stub=False, stub_path=None):
-        """Ottiene risultati di tracciamento giocatori con cache opzionale."""
+        """Get player tracks with optional caching."""
         tracks = read_stub(read_from_stub,stub_path)
         if tracks is not None:
             if len(tracks) == len(frames):
